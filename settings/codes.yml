@@ -1,0 +1,8 @@
+test:
+  perPlayerLimit: 1
+  globalLimit: 1
+  usedBy: []
+  usedTotal: 1
+  action:
+    type: money
+    amount: 777

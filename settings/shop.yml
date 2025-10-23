@@ -1,0 +1,5 @@
+- id: rape
+  name: test
+  price: 7500
+  oneTime: true
+  command: $cmd give {player} rape
