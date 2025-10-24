@@ -2,7 +2,7 @@ host: ip # Айпи сервера
 port: 25565 # Порт сервера
 botnick: AuroraBot # Никнейм бота
 
-msg_hidename: true
+msg_hidename: false
 botprefix: $
 autoconsole: false
 testmode: false
