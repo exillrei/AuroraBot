@@ -1809,7 +1809,8 @@ bot.on('message', async (jsonMsg) => {
     blockBuffer.push(text);
   }
 
-  const arrowIndex = parsed.lastIndexOf('⇨');
+  const arrowSymbol = '⇨'
+  const arrowIndex = parsed.lastIndexOf(arrowSymbol);
 
   if (awaitingAnswer && currentGame && arrowIndex !== -1) {
     const leftPart = parsed.slice(0, arrowIndex).trim();
@@ -1966,7 +1967,8 @@ bot.on('message', async (jsonMsg) => {
     }, 500);
   }
 
-  const match = parsed?.match(/(?:[\s\S]*?)?(\S+)\s*⇨\s*(.*)/);
+  const regex = new RegExp(`(?:[\\s\\S]*?)?(\\S+)\\s*${arrowSymbol}\\s*(.*)`);
+  const match = parsed?.match(regex);
   if (match) {
     await handleChat(match[1].trim(), match[2].trim());
   }
