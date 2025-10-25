@@ -83,8 +83,8 @@ let fullySpawned = false;
 let activeSpammer = null;
 let spammerInterval = null;
 
-if (!process.env.TOGETHER_API_KEY) {
-  console.error(chalk.hex('#FF0000')('❌ Ошибка: переменная TOGETHER_API_KEY не задана в .env'));
+if (!process.env.AI_API_KEY) {
+  console.error(chalk.hex('#FF0000')('❌ Ошибка: переменная AI_API_KEY не задана в .env'));
   process.exit(1);
 }
 
@@ -376,24 +376,22 @@ function limitCharsByWords(text, maxChars = 240) {
 async function queryAI(prompt) {
   try {
     const response = await fetch(
-      'https://api.together.xyz/v1/chat/completions',
+      'https://openrouter.ai/api/v1/chat/completions',
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`,
+          'Authorization': `Bearer ${process.env.AI_API_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+          model: 'Your Model',
           messages: [
             {
               role: 'system',
               content: 'your content'
             },
             { role: 'user', content: prompt }
-          ],
-          temperature: 0.7,
-          max_tokens: 512
+          ]
         })
       }
     );
