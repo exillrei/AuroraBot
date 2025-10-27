@@ -675,11 +675,11 @@ async function handleChat(usernameRaw, message) {
       pendingDiscordRun = null;
     }
 
-    if (username.startsWith('~')) {
-      const displayNick = username.toLowerCase();
+    if (usernameRaw.startsWith('~')) {
+      const displayNick = usernameRaw.toLowerCase();
 
       if (nickMap.has(displayNick)) {
-        username = nickMap.get(displayNick);
+        usernameRaw = nickMap.get(displayNick);
       } else {
         if (!pendingRealnames.has(displayNick))
           pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
@@ -687,13 +687,13 @@ async function handleChat(usernameRaw, message) {
         pendingRealnames.get(displayNick).logs.push({ timestamp: getFormattedTimestamp(), msgText: message });
         pendingRealnames.get(displayNick).commands.push(message);
 
-        requestRealName(username);
+        requestRealName(usernameRaw);
         return;
       }
     }
 
-    await logToDiscordChatLog(`${getFormattedTimestamp()} :speech_balloon: **\`${username}\`**\n\`\`\`\n${message}\n\`\`\``);
-    await processUserCommand(username.toLowerCase(), message);
+    await logToDiscordChatLog(`${getFormattedTimestamp()} :speech_balloon: **\`${usernameRaw}\`**\n\`\`\`\n${message}\n\`\`\``);
+    await processUserCommand(usernameRaw.toLowerCase(), message);
 
   } catch (err) {
     console.error(chalk.hex('#FF7C7C')('[handleChat ошибка]', err));
