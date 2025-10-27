@@ -664,7 +664,10 @@ function giveGameReward(username) {
 async function handleChat(usernameRaw, message) {
   try {
     const username = cleanName(usernameRaw);
-    if (username === bot.username && !message.startsWith(`${config.botprefix}cmd`)) return;
+    if (username === bot.username) {
+      await logToDiscordChatLog(`${getFormattedTimestamp()} :robot: **\`${username}\`**\n\`\`\`\n${message}\n\`\`\``);
+      if (!message.startsWith(`${config.botprefix}cmd`)) return;
+    }
     if (isDuplicateMessage(username, message)) return;
 
     if (pendingDiscordRun) {
@@ -672,20 +675,24 @@ async function handleChat(usernameRaw, message) {
       pendingDiscordRun = null;
     }
 
-    if (usernameRaw.startsWith('~')) {
-      const displayNick = usernameRaw.toLowerCase();
+    if (username.startsWith('~')) {
+      const displayNick = username.toLowerCase();
 
-      if (!nickMap.has(displayNick)) {
-        pendingCommands.set(displayNick, { username: usernameRaw, message });
-        requestRealName(usernameRaw);
-        return;
+      if (nickMap.has(displayNick)) {
+        username = nickMap.get(displayNick);
       } else {
-        const realUsername = nickMap.get(displayNick);
-        await processUserCommand(realUsername, message);
+        if (!pendingRealnames.has(displayNick))
+          pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
+
+        pendingRealnames.get(displayNick).logs.push({ timestamp: getFormattedTimestamp(), msgText: message });
+        pendingRealnames.get(displayNick).commands.push(message);
+
+        requestRealName(username);
         return;
       }
     }
 
+    await logToDiscordChatLog(`${getFormattedTimestamp()} :speech_balloon: **\`${username}\`**\n\`\`\`\n${message}\n\`\`\``);
     await processUserCommand(username.toLowerCase(), message);
 
   } catch (err) {
@@ -904,6 +911,32 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   const alwaysAllowed = ['help', 'info', 'feedback', 'balance', 'pay', 'shop', 'code'];
 
   if (realUsername.toLowerCase() === bot.username.toLowerCase()) return;
+
+  if (message.toLowerCase().includes('ботяра,')) {
+    if (checkMute(realUsername.toLowerCase(), resolvedUsername)) return;
+
+    if (isBlacklisted(realUsername)) {
+      await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, вы в чёрном списке бота!`);
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastBotCall < botCooldown) {
+      await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, подождите немного, бот отдыхает`);
+      return;
+    }
+    lastBotCall = now;
+
+    const parts = message.toLowerCase().split('ботяра,');
+    if (parts.length < 2) return;
+
+    const prompt = parts[1].trim();
+    if (!prompt) return;
+
+    await bot.chat(`!&6${displayName}, думаю...`);
+    const reply = await queryAI(prompt);
+    await sendLongMessage(originalCasedUsername, reply);
+  }
 
   const trimmed = (message || '').trim();
   if (!trimmed.startsWith(config.botprefix)) return;
@@ -1698,32 +1731,6 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       break;
     }
   }
-
-  if (message.toLowerCase().includes('ботяра,')) {
-    if (checkMute(realUsername.toLowerCase(), resolvedUsername)) return;
-
-    if (isBlacklisted(realUsername)) {
-      await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, вы в чёрном списке бота!`);
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastBotCall < botCooldown) {
-      await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, подождите немного, бот отдыхает`);
-      return;
-    }
-    lastBotCall = now;
-
-    const parts = message.toLowerCase().split('ботяра,');
-    if (parts.length < 2) return;
-
-    const prompt = parts[1].trim();
-    if (!prompt) return;
-
-    await bot.chat(`!&6${displayName}, думаю...`);
-    const reply = await queryAI(prompt);
-    await sendLongMessage(originalCasedUsername, reply);
-  }
 }
 
 bot.on('login', () => {
@@ -1865,11 +1872,10 @@ bot.on('message', async (jsonMsg) => {
     }
 
     if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed)) {
+      const leftPart = parsed.slice(0, arrowIndex).trim();
+      const msgText = parsed.slice(arrowIndex + 1).replace(/^⇨\s*/, '').trim();
+      let usernameRaw = leftPart.split(/\s+/).pop();
       if (arrowIndex !== -1) {
-        const leftPart = parsed.slice(0, arrowIndex).trim();
-        const msgText = parsed.slice(arrowIndex + 1).replace(/^⇨\s*/, '').trim();
-        let usernameRaw = leftPart.split(/\s+/).pop();
-
         if (usernameRaw.startsWith('~')) {
           const displayNick = usernameRaw.toLowerCase();
           if (nickMap.has(displayNick)) {
@@ -1892,10 +1898,9 @@ bot.on('message', async (jsonMsg) => {
             chalk.hex('#ff8282')('processUserCommand:', err)
           );
         }
-
-        await logToDiscordChatLog(`${timestamp} :speech_balloon: **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
-        return;
       }
+      await logToDiscordChatLog(`${timestamp} :speech_balloon: **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
+      return;
     }
 
     await logToDiscordChatLog(`${timestamp}\n\`\`\`\n${parsed}\n\`\`\``);
