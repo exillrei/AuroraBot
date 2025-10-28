@@ -2101,7 +2101,6 @@ rl.on('line', async (input) => {
 });
 
 bot.on('error', err => {
-  outputToDiscord(err);
   console.error(chalk.hex('#FF0000')('[Ошибка]', err));
 });
 bot.on('end', (reason) => {
