@@ -396,15 +396,28 @@ async function queryAI(prompt) {
       }
     );
 
+    if (!response.ok) {
+      const errorMsg = `${response.status} ${response.statusText}`;
+      bot.chat(`/me &8[&#FF0000✘&8] &cОбщение с ИИ временно недоступно. &8(&6${errorMsg}&8)`);
+      console.error(
+        chalk.bold.hex('#ffd7d7')('[Общение с ИИ]') + ' ' +
+        chalk.hex('#FF7C7C')(errorMsg)
+      );
+    }
+
     const data = await response.json();
-    let text = data.choices?.[0]?.message?.content?.trim() || 'Сорри, у меня пусто';
+    let text = data.choices?.[0]?.message?.content?.trim();
 
     text = limitCharsByWords(text, 240);
 
     return text;
   } catch (err) {
-    console.error('[Ошибка]', err);
-    return 'Сорри, у меня ошибка';
+    const errorText = (err.message || String(err)).slice(0, 80);
+    bot.chat(`/me &8[&#FF0000✘&8] &cОбщение с ИИ временно недоступно. &8(&6${errorText}&8)`);
+    console.error(
+      chalk.bold.hex('#ffd7d7')('[Общение с ИИ]') + ' ' +
+      chalk.hex('#FF7C7C')(err)
+    );
   }
 }
 
@@ -703,7 +716,7 @@ async function handleChat(usernameRaw, message) {
 async function sendLongMessage(realUsername, text) {
   const resolvedUsername = resolveUsername(realUsername);
   const originalCasedUsername = resolvedUsername;
-  const maxLen = 220;
+  const maxLen = 240;
   let remaining = text;
 
   while (remaining.length > 0) {
