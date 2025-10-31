@@ -767,55 +767,6 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
       await logToDiscordChatLog(`${timestamp}\n\`\`\`\n${parsed}\n\`\`\``);
     }
 
-    const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
-    if (realnameMatch) {
-      const displayNick = `~${realnameMatch[1]}`.toLowerCase();
-      const realNick = realnameMatch[2];
-      nickMap.set(displayNick, realNick);
-
-      if (pendingRealnames.has(displayNick)) {
-        const data = pendingRealnames.get(displayNick);
-
-        for (const log of data.logs) {
-          await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
-        }
-
-        for (const cmd of data.commands) {
-          try {
-            await processUserCommand(realNick.toLowerCase(), cmd);
-          } catch (err) {
-            console.error(
-              chalk.bold.hex('#FF0000')('[Ошибка]') + ' ' +
-              chalk.hex('#ff8282')('processUserCommand (pending cmds):', err)
-            );
-          }
-        }
-
-        for (const ans of data.answers) {
-          if (awaitingAnswer && currentGame && ans.toLowerCase() === currentGame.answer.toLowerCase()) {
-            giveGameReward(realNick);
-          }
-        }
-
-        pendingRealnames.delete(displayNick);
-      }
-      return;
-    }
-
-    if (parsed.startsWith('>  Игрок не найден.')) {
-      if (pendingRealnames.size > 0) {
-        for (const [displayNick, data] of pendingRealnames.entries()) {
-          nickMap.set(displayNick, "Unknown Player");
-
-          for (const log of data.logs) {
-            await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
-          }
-
-          pendingRealnames.delete(displayNick);
-        }
-      }
-    }
-
     await processUserCommand(usernameRaw, msgText);
   } catch (err) {
     console.error(chalk.hex('#FF7C7C')('[handleChat ошибка]', err));
@@ -1953,6 +1904,55 @@ bot.on('message', async (jsonMsg) => {
       pendingDiscordRun = null;
       collectedRunOutput = [];
     }, 500);
+  }
+
+  const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
+  if (realnameMatch) {
+    const displayNick = `~${realnameMatch[1]}`.toLowerCase();
+    const realNick = realnameMatch[2];
+    nickMap.set(displayNick, realNick);
+
+    if (pendingRealnames.has(displayNick)) {
+      const data = pendingRealnames.get(displayNick);
+
+      for (const log of data.logs) {
+        await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+      }
+
+      for (const cmd of data.commands) {
+        try {
+          await processUserCommand(realNick.toLowerCase(), cmd);
+        } catch (err) {
+          console.error(
+            chalk.bold.hex('#FF0000')('[Ошибка]') + ' ' +
+            chalk.hex('#ff8282')('processUserCommand (pending cmds):', err)
+          );
+        }
+      }
+
+      for (const ans of data.answers) {
+        if (awaitingAnswer && currentGame && ans.toLowerCase() === currentGame.answer.toLowerCase()) {
+          giveGameReward(realNick);
+        }
+      }
+
+      pendingRealnames.delete(displayNick);
+    }
+    return;
+  }
+
+  if (parsed.startsWith('>  Игрок не найден.')) {
+    if (pendingRealnames.size > 0) {
+      for (const [displayNick, data] of pendingRealnames.entries()) {
+        nickMap.set(displayNick, "Unknown Player");
+
+        for (const log of data.logs) {
+          await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+        }
+
+        pendingRealnames.delete(displayNick);
+      }
+    }
   }
 
   if (arrowIndex !== -1) {
