@@ -608,7 +608,7 @@ function revokePermission(username, command) {
 
 function startChatGame() {
   try {
-    const games = yaml.load(fs.readFileSync('chatgame.yml', 'utf8'));
+    const games = yaml.load(fs.readFileSync('./settings/chatgame.yml', 'utf8'));
     if (!Array.isArray(games) || games.length === 0) {
       console.log(
         chalk.bold.hex('#ff0000')('[Ошибка]') + ' ' +
@@ -645,7 +645,7 @@ setInterval(() => {
   if (!awaitingAnswer && bot.player) {
     startChatGame();
   }
-}, 3 * 30 * 1000);
+}, 90 * 1000);
 
 function pickReward(rewards) {
   const rand = Math.random();
@@ -674,40 +674,149 @@ function giveGameReward(username) {
   currentGame = null;
 }
 
-async function handleChat(usernameRaw, message) {
+async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
   try {
     const username = cleanName(usernameRaw);
-    if (username === bot.username) {
-      await logToDiscordChatLog(`${getFormattedTimestamp()} :robot: **\`${username}\`**\n\`\`\`\n${message}\n\`\`\``);
-      if (!message.startsWith(`${config.botprefix}cmd`)) return;
-    }
-    if (isDuplicateMessage(username, message)) return;
+    const timestamp = getFormattedTimestamp();
 
-    if (pendingDiscordRun) {
-      await outputToDiscord(`\`\`\`\n${message}\n\`\`\``);
-      pendingDiscordRun = null;
-    }
+    if (isDuplicateMessage(username, msgText)) return;
 
-    if (usernameRaw.startsWith('~')) {
-      const displayNick = usernameRaw.toLowerCase();
+    const arrowSymbol = '⇨'
+    const arrowIndex = parsed.lastIndexOf(arrowSymbol);
 
-      if (nickMap.has(displayNick)) {
-        usernameRaw = nickMap.get(displayNick);
-      } else {
-        if (!pendingRealnames.has(displayNick))
-          pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
+    if (awaitingAnswer && currentGame && arrowIndex !== -1) {
+      const leftPart = parsed.slice(0, arrowIndex).trim();
+      const answerText = parsed.slice(arrowIndex + 1).trim();
+      let usernameRaw = leftPart.split(/\s+/).pop();
 
-        pendingRealnames.get(displayNick).logs.push({ timestamp: getFormattedTimestamp(), msgText: message });
-        pendingRealnames.get(displayNick).commands.push(message);
+      if (usernameRaw.startsWith('~')) {
+        const displayNick = usernameRaw.toLowerCase();
+        if (nickMap.has(displayNick)) {
+          usernameRaw = nickMap.get(displayNick);
+        } else {
+          if (!pendingRealnames.has(displayNick))
+            pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
+          pendingRealnames.get(displayNick).answers.push(answerText);
+          requestRealName(usernameRaw);
+          return;
+        }
+      }
 
-        requestRealName(usernameRaw);
+      if (answerText.toLowerCase() === currentGame.answer.toLowerCase()) {
+        giveGameReward(usernameRaw);
         return;
       }
     }
 
-    await logToDiscordChatLog(`${getFormattedTimestamp()} :speech_balloon: **\`${usernameRaw}\`**\n\`\`\`\n${message}\n\`\`\``);
-    await processUserCommand(usernameRaw.toLowerCase(), message);
+    const ChatMessage =
+      parsed.includes('[ʟ]') || parsed.includes('[ɢ]') ||
+      parsed.startsWith('[я ->') || parsed.includes('-> я]') ||
+      parsed.startsWith('[SS]');
 
+    if (ChatMessage) {
+
+      chatLogList.push(parsed);
+
+      if (parsed.startsWith('『КОНСОЛЬ』')) {
+        const parts = parsed.split('использовал команду');
+        const leftPart = parts[0].replace('『КОНСОЛЬ』', '').trim();
+        const username = leftPart.split(/\s+/).pop();
+        const command = parts[1]?.trim() || '';
+        const ignoredCommands = [
+          '/d', '/disguise', '/undisguise', '/dis',
+          '/uc', '/free', '/menu', '/donate', '/warp', '/rtp'
+        ];
+
+        if (ignoredCommands.some(c => command.toLowerCase().startsWith(c))) return;
+
+        logToDiscordChatLog(`${timestamp} ⌨️ **\`${username}\`**\n\`\`\`\n${command}\n\`\`\``);
+        return;
+      }
+
+      if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed)) {
+        const leftPart = parsed.slice(0, arrowIndex).trim();
+        let usernameRaw = leftPart.split(/\s+/).pop();
+        if (arrowIndex !== -1) {
+          if (usernameRaw.startsWith('~')) {
+            const displayNick = usernameRaw.toLowerCase();
+            if (nickMap.has(displayNick)) {
+              usernameRaw = nickMap.get(displayNick);
+            } else {
+              if (!pendingRealnames.has(displayNick))
+                pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
+              pendingRealnames.get(displayNick).logs.push({ timestamp, msgText });
+              pendingRealnames.get(displayNick).commands.push(msgText);
+              requestRealName(usernameRaw);
+              return;
+            }
+          }
+
+          try {
+            await processUserCommand(usernameRaw.toLowerCase(), msgText.replace(/§./g, '').trim());
+          } catch (err) {
+            console.error(
+              chalk.bold.hex('#FF0000')('[Ошибка]') + ' ' +
+              chalk.hex('#ff8282')('processUserCommand:', err)
+            );
+          }
+        }
+        await logToDiscordChatLog(`${timestamp} :speech_balloon: **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
+        return;
+      }
+
+      await logToDiscordChatLog(`${timestamp}\n\`\`\`\n${parsed}\n\`\`\``);
+    }
+
+    const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
+    if (realnameMatch) {
+      const displayNick = `~${realnameMatch[1]}`.toLowerCase();
+      const realNick = realnameMatch[2];
+      nickMap.set(displayNick, realNick);
+
+      if (pendingRealnames.has(displayNick)) {
+        const data = pendingRealnames.get(displayNick);
+
+        for (const log of data.logs) {
+          await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+        }
+
+        for (const cmd of data.commands) {
+          try {
+            await processUserCommand(realNick.toLowerCase(), cmd);
+          } catch (err) {
+            console.error(
+              chalk.bold.hex('#FF0000')('[Ошибка]') + ' ' +
+              chalk.hex('#ff8282')('processUserCommand (pending cmds):', err)
+            );
+          }
+        }
+
+        for (const ans of data.answers) {
+          if (awaitingAnswer && currentGame && ans.toLowerCase() === currentGame.answer.toLowerCase()) {
+            giveGameReward(realNick);
+          }
+        }
+
+        pendingRealnames.delete(displayNick);
+      }
+      return;
+    }
+
+    if (parsed.startsWith('>  Игрок не найден.')) {
+      if (pendingRealnames.size > 0) {
+        for (const [displayNick, data] of pendingRealnames.entries()) {
+          nickMap.set(displayNick, "Unknown Player");
+
+          for (const log of data.logs) {
+            await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+          }
+
+          pendingRealnames.delete(displayNick);
+        }
+      }
+    }
+
+    await processUserCommand(usernameRaw, msgText);
   } catch (err) {
     console.error(chalk.hex('#FF7C7C')('[handleChat ошибка]', err));
   }
@@ -922,8 +1031,6 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   ];
   const discordBlockedCommands = ['pay', 'balance', 'feedback', 'code', 'bcode', 'shop'];
   const alwaysAllowed = ['help', 'info', 'feedback', 'balance', 'pay', 'shop', 'code'];
-
-  if (realUsername.toLowerCase() === bot.username.toLowerCase()) return;
 
   if (message.toLowerCase().includes('ботяра,')) {
     if (checkMute(realUsername.toLowerCase(), resolvedUsername)) return;
@@ -1792,11 +1899,13 @@ let collectingBlock = false;
 let blockBuffer = [];
 
 bot.on('message', async (jsonMsg) => {
-  const timestamp = getFormattedTimestamp();
   const text = jsonMsg.toString();
-  const parsed = (parseFormattedMessage(jsonMsg?.json || jsonMsg) + '').replace(/§[xr]/gi, '');
-  const colored = (parseColoredText(jsonMsg?.json || jsonMsg) + '').replace(/§[xr]/gi, '');
+  const parsed = (parseFormattedMessage(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xr]/gi, '');
+  const colored = (parseColoredText(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xr]/gi, '');
   if (parsed) console.log(colored);
+
+  const arrowSymbol = '⇨'
+  const arrowIndex = parsed.lastIndexOf(arrowSymbol);
 
   if (config.autoconsole && parsed.includes("Добро пожаловать!")) {
     bot.chat("/console");
@@ -1829,145 +1938,6 @@ bot.on('message', async (jsonMsg) => {
     blockBuffer.push(text);
   }
 
-  const arrowSymbol = '⇨'
-  const arrowIndex = parsed.lastIndexOf(arrowSymbol);
-
-  if (awaitingAnswer && currentGame && arrowIndex !== -1) {
-    const leftPart = parsed.slice(0, arrowIndex).trim();
-    const answerText = parsed.slice(arrowIndex + 1).trim();
-    let usernameRaw = leftPart.split(/\s+/).pop();
-
-    if (usernameRaw.startsWith('~')) {
-      const displayNick = usernameRaw.toLowerCase();
-      if (nickMap.has(displayNick)) {
-        usernameRaw = nickMap.get(displayNick);
-      } else {
-        if (!pendingRealnames.has(displayNick))
-          pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
-        pendingRealnames.get(displayNick).answers.push(answerText);
-        requestRealName(usernameRaw);
-        return;
-      }
-    }
-
-    if (answerText.toLowerCase() === currentGame.answer.toLowerCase()) {
-      giveGameReward(usernameRaw);
-      return;
-    }
-  }
-
-  const ChatMessage =
-    parsed.includes('[ʟ]') || parsed.includes('[ɢ]') ||
-    parsed.startsWith('[я ->') || parsed.includes('-> я]') ||
-    parsed.startsWith('[SS]') || parsed.includes('временно забанил IP-адрес') ||
-    parsed.startsWith('>') || parsed.startsWith('〄 Объявление:') ||
-    parsed.startsWith('『КОНСОЛЬ』');
-
-  if (ChatMessage) {
-
-    chatLogList.push(parsed);
-
-    if (parsed.startsWith('『КОНСОЛЬ』')) {
-      const parts = parsed.split('использовал команду');
-      const leftPart = parts[0].replace('『КОНСОЛЬ』', '').trim();
-
-      const username = leftPart.split(/\s+/).pop();
-      const command = parts[1]?.trim() || '';
-      const ignoredCommands = [
-        '/d', '/disguise', '/undisguise', '/dis',
-        '/uc', '/free', '/menu', '/donate', '/warp', '/rtp'
-      ];
-
-      if (ignoredCommands.some(c => command.toLowerCase().startsWith(c))) return;
-
-      logToDiscordChatLog(`${timestamp} ⌨️ **\`${username}\`**\n\`\`\`\n${command}\n\`\`\``);
-      return;
-    }
-
-    if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed)) {
-      const leftPart = parsed.slice(0, arrowIndex).trim();
-      const msgText = parsed.slice(arrowIndex + 1).replace(/^⇨\s*/, '').trim();
-      let usernameRaw = leftPart.split(/\s+/).pop();
-      if (arrowIndex !== -1) {
-        if (usernameRaw.startsWith('~')) {
-          const displayNick = usernameRaw.toLowerCase();
-          if (nickMap.has(displayNick)) {
-            usernameRaw = nickMap.get(displayNick);
-          } else {
-            if (!pendingRealnames.has(displayNick))
-              pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
-            pendingRealnames.get(displayNick).logs.push({ timestamp, msgText });
-            pendingRealnames.get(displayNick).commands.push(msgText);
-            requestRealName(usernameRaw);
-            return;
-          }
-        }
-
-        try {
-          await processUserCommand(usernameRaw.toLowerCase(), msgText.replace(/§./g, '').trim());
-        } catch (err) {
-          console.error(
-            chalk.bold.hex('#FF0000')('[Ошибка]') + ' ' +
-            chalk.hex('#ff8282')('processUserCommand:', err)
-          );
-        }
-      }
-      await logToDiscordChatLog(`${timestamp} :speech_balloon: **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
-      return;
-    }
-
-    await logToDiscordChatLog(`${timestamp}\n\`\`\`\n${parsed}\n\`\`\``);
-  }
-
-  const realnameMatch = text.match(/^~(.+?) is (\w+)/);
-  if (realnameMatch) {
-    const displayNick = `~${realnameMatch[1]}`.toLowerCase();
-    const realNick = realnameMatch[2];
-    nickMap.set(displayNick, realNick);
-
-    if (pendingRealnames.has(displayNick)) {
-      const data = pendingRealnames.get(displayNick);
-
-      for (const log of data.logs) {
-        await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
-      }
-
-      for (const cmd of data.commands) {
-        try {
-          await processUserCommand(realNick.toLowerCase(), cmd);
-        } catch (err) {
-          console.error(
-            chalk.bold.hex('#FF0000')('[Ошибка]') + ' ' +
-            chalk.hex('#ff8282')('processUserCommand (pending cmds):', err)
-          );
-        }
-      }
-
-      for (const ans of data.answers) {
-        if (awaitingAnswer && currentGame && ans.toLowerCase() === currentGame.answer.toLowerCase()) {
-          giveGameReward(realNick);
-        }
-      }
-
-      pendingRealnames.delete(displayNick);
-    }
-    return;
-  }
-
-  if (parsed.startsWith('>  Игрок не найден.')) {
-    if (pendingRealnames.size > 0) {
-      for (const [displayNick, data] of pendingRealnames.entries()) {
-        nickMap.set(displayNick, "Unknown Player");
-
-        for (const log of data.logs) {
-          await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
-        }
-
-        pendingRealnames.delete(displayNick);
-      }
-    }
-  }
-
   if (pendingDiscordRun) {
     const cleanText = parseFormattedMessage(jsonMsg.json || jsonMsg);
     if (cleanText?.trim()) collectedRunOutput.push(cleanText.trim());
@@ -1985,10 +1955,12 @@ bot.on('message', async (jsonMsg) => {
     }, 500);
   }
 
-  const regex = new RegExp(`(?:[\\s\\S]*?)?(\\S+)\\s*${arrowSymbol}\\s*(.*)`);
-  const match = parsed?.match(regex);
-  if (match) {
-    await handleChat(match[1].trim(), match[2].trim());
+  if (arrowIndex !== -1) {
+    const left = parsed.slice(0, arrowIndex).trim();
+    const username = left.split(/\s+/).pop();
+    const msgText = parsed.slice(arrowIndex + arrowSymbol.length).trim();
+
+    await handleChat(username, msgText, parsed, jsonMsg);
   }
 });
 
