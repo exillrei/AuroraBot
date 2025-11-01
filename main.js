@@ -994,7 +994,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   const discordBlockedCommands = ['pay', 'balance', 'feedback', 'code', 'bcode', 'shop'];
   const alwaysAllowed = ['help', 'info', 'feedback', 'balance', 'pay', 'shop', 'code'];
 
-  if (message.toLowerCase().includes('ботяра,')) {
+  if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(message) && message.toLowerCase().includes('ботяра,')) {
     if (checkMute(realUsername.toLowerCase(), resolvedUsername)) return;
 
     if (isBlacklisted(realUsername)) {
@@ -1029,10 +1029,6 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   if (source === 'discord' && discordBlockedCommands.includes(cmd)) {
     await outputToDiscord(`\`\`\`\n${displayName}, команда ${config.botprefix}${cmd} недоступна через Discord.\n\`\`\``);
     return;
-  }
-
-  if (isConsole) {
-    if (!userPerms['CONSOLE']) userPerms['CONSOLE'] = ['*'];
   }
 
   if (checkMute(realUsername.toLowerCase(), resolvedUsername)) return;
