@@ -1105,7 +1105,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const uptime = Date.now() - startTime;
       const formatted = formatUptime(uptime);
       if (source === 'mc') {
-        await bot.chat(`/me &8[&e✦&8] &e${displayName}, &aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e${config.botprefix}help &8| &aОбщение с нейросетью: &#00FF89хомяк, ваш текст &8| &aАптайм бота: &#009EFF${formatted} ⌚`);
+        await bot.chat(`/me &8[&e✦&8] &e${displayName}, &aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e${config.botprefix}help &8| &aОбщение с нейросетью: &#00FF89ботяра, ваш текст &8| &aАптайм бота: &#009EFF${formatted} ⌚`);
       } else {
         await outputToDiscord(`\`\`\`\nСоздатель бота: exillrei\nСписок команд: ${config.botprefix}help\nАптайм бота: ${formatted} ⌚\n\`\`\``);
       }
