@@ -733,6 +733,17 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
         return;
       }
 
+      const tagMatch = parsed.match(/\[(ɢ|ʟ)\]/i);
+
+      if (tagMatch) {
+        const tagIndex = parsed.indexOf(tagMatch[0]);
+
+        if (tagIndex > 0 && !parsed.startsWith('❤')) {
+          await outputToDiscord(`\`\`\`\n[WARN] Подозрительная активность:\n${parsed}\n\`\`\``);
+          return;
+        }
+      }
+
       if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed)) {
         const leftPart = parsed.slice(0, arrowIndex).trim();
         let usernameRaw = leftPart.split(/\s+/).pop();
