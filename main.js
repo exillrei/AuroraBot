@@ -1966,13 +1966,19 @@ bot.on('message', async (jsonMsg) => {
     }
   }
 
-  if (arrowIndex !== -1) {
-    const left = parsed.slice(0, arrowIndex).trim();
-    const username = left.split(/\s+/).pop();
-    const msgText = parsed.slice(arrowIndex + arrowSymbol.length).trim();
+    let usernameRaw = '';
+    let msgText = '';
 
-    await handleChat(username, msgText, parsed, jsonMsg);
-  }
+    if (arrowIndex !== -1) {
+      const left = parsed.slice(0, arrowIndex).trim();
+      usernameRaw = left.split(/\s+/).pop();
+      msgText = parsed.slice(arrowIndex + arrowSymbol.length).trim();
+    } else {
+      usernameRaw = parsed.split(/\s+/)[0];
+      msgText = parsed;
+    }
+
+    await handleChat(usernameRaw, msgText, parsed, jsonMsg);
 });
 
 bot.once('windowOpen', (window) => {
