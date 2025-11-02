@@ -674,12 +674,57 @@ function giveGameReward(username) {
   currentGame = null;
 }
 
+async function processAI(realNick, msgText) {
+
+  if (checkMute(realNick.toLowerCase(), realNick)) return;
+
+  if (isBlacklisted(realNick.toLowerCase())) {
+    await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, вы в чёрном списке бота!`);
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastBotCall < botCooldown) {
+    await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, подождите немного, бот отдыхает`);
+    return;
+  }
+  lastBotCall = now;
+
+  const parts = msgText.toLowerCase().split('ботяра,');
+  if (parts.length < 2) return;
+
+  const prompt = parts[1].trim();
+  if (!prompt) return;
+
+  await bot.chat(`/m ${realNick} Думаю...`);
+  const reply = await queryAI(prompt);
+  await sendLongMessage(realNick, reply);
+}
+
 async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
   try {
     const username = cleanName(usernameRaw);
     const timestamp = getFormattedTimestamp();
 
     if (isDuplicateMessage(username, msgText)) return;
+
+    if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed) && msgText.toLowerCase().includes('ботяра,')) {
+
+      if (usernameRaw.startsWith('~')) {
+        const displayNick = usernameRaw.toLowerCase();
+
+        if (!pendingRealnames.has(displayNick))
+          pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [], aimsg: [] });
+
+        pendingRealnames.get(displayNick).aimsg.push(msgText);
+
+        requestRealName(usernameRaw);
+        return;
+      }
+
+      await processAI(usernameRaw, msgText);
+      return;
+    }
 
     const arrowSymbol = '⇨'
     const arrowIndex = parsed.lastIndexOf(arrowSymbol);
@@ -695,7 +740,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
           usernameRaw = nickMap.get(displayNick);
         } else {
           if (!pendingRealnames.has(displayNick))
-            pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
+            pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [], aimsg: [] });
           pendingRealnames.get(displayNick).answers.push(answerText);
           requestRealName(usernameRaw);
           return;
@@ -754,7 +799,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
               usernameRaw = nickMap.get(displayNick);
             } else {
               if (!pendingRealnames.has(displayNick))
-                pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [] });
+                pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [], aimsg: [] });
               pendingRealnames.get(displayNick).logs.push({ timestamp, msgText });
               pendingRealnames.get(displayNick).commands.push(msgText);
               requestRealName(usernameRaw);
@@ -763,7 +808,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
           }
 
           try {
-            await processUserCommand(usernameRaw.toLowerCase(), msgText.replace(/§./g, '').trim());
+            await processUserCommand(usernameRaw, msgText);
           } catch (err) {
             console.error(
               chalk.bold.hex('#FF0000')('[Ошибка]') + ' ' +
@@ -993,32 +1038,6 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   ];
   const discordBlockedCommands = ['pay', 'balance', 'feedback', 'code', 'bcode', 'shop'];
   const alwaysAllowed = ['help', 'info', 'feedback', 'balance', 'pay', 'shop', 'code'];
-
-  if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(message) && message.toLowerCase().includes('ботяра,')) {
-    if (checkMute(realUsername.toLowerCase(), resolvedUsername)) return;
-
-    if (isBlacklisted(realUsername)) {
-      await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, вы в чёрном списке бота!`);
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastBotCall < botCooldown) {
-      await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, подождите немного, бот отдыхает`);
-      return;
-    }
-    lastBotCall = now;
-
-    const parts = message.toLowerCase().split('ботяра,');
-    if (parts.length < 2) return;
-
-    const prompt = parts[1].trim();
-    if (!prompt) return;
-
-    await bot.chat(`!&6${displayName}, думаю...`);
-    const reply = await queryAI(prompt);
-    await sendLongMessage(originalCasedUsername, reply);
-  }
 
   const trimmed = (message || '').trim();
   if (!trimmed.startsWith(config.botprefix)) return;
@@ -1943,6 +1962,10 @@ bot.on('message', async (jsonMsg) => {
         }
       }
 
+      for (const ai of data.aimsg) {
+        await processAI(realNick, ai);
+      }
+
       pendingRealnames.delete(displayNick);
     }
     return;
@@ -1962,19 +1985,19 @@ bot.on('message', async (jsonMsg) => {
     }
   }
 
-    let usernameRaw = '';
-    let msgText = '';
+  let usernameRaw = '';
+  let msgText = '';
 
-    if (arrowIndex !== -1) {
-      const left = parsed.slice(0, arrowIndex).trim();
-      usernameRaw = left.split(/\s+/).pop();
-      msgText = parsed.slice(arrowIndex + arrowSymbol.length).trim();
-    } else {
-      usernameRaw = parsed.split(/\s+/)[0];
-      msgText = parsed;
-    }
+  if (arrowIndex !== -1) {
+    const left = parsed.slice(0, arrowIndex).trim();
+    usernameRaw = left.split(/\s+/).pop();
+    msgText = parsed.slice(arrowIndex + arrowSymbol.length).trim();
+  } else {
+    usernameRaw = parsed.split(/\s+/)[0];
+    msgText = parsed;
+  }
 
-    await handleChat(usernameRaw, msgText, parsed, jsonMsg);
+  await handleChat(usernameRaw, msgText, parsed, jsonMsg);
 });
 
 bot.once('windowOpen', (window) => {
