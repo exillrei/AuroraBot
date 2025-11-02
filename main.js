@@ -61,7 +61,7 @@ const startTime = Date.now();
 let blacklist = [];
 let lastBotCall = 0;
 const botCooldown = 30000;
-let mutedUsers = {};
+let bannedUsers = {};
 let currentGame = null;
 let awaitingAnswer = false;
 let gameTimeout = null;
@@ -549,7 +549,7 @@ function hasPermission(username, command) {
 
   const role = getRole(username);
   if (role === 'owner') return true;
-  if (role === 'moder' && ['run', 'msg', 'mute', 'unmute', 'blacklist'].includes(command)) {
+  if (role === 'moder' && ['run', 'msg', 'ban', 'unban', 'blacklist'].includes(command)) {
     return true;
   }
 
@@ -676,7 +676,7 @@ function giveGameReward(username) {
 
 async function processAI(realNick, msgText) {
 
-  if (checkMute(realNick.toLowerCase(), realNick)) return;
+  if (checkBan(realNick.toLowerCase(), realNick)) return;
 
   if (isBlacklisted(realNick.toLowerCase())) {
     await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, вы в чёрном списке бота!`);
@@ -843,65 +843,65 @@ async function sendLongMessage(realUsername, text) {
   }
 }
 
-function loadMutes() {
+function loadBan() {
   try {
-    const file = fs.readFileSync('./settings/muted.yml', 'utf8');
-    mutedUsers = yaml.load(file) || {};
+    const file = fs.readFileSync('./settings/banned.yml', 'utf8');
+    bannedUsers = yaml.load(file) || {};
   } catch {
-    mutedUsers = {};
+    bannedUsers = {};
   }
 }
-function saveMutes() {
-  fs.writeFileSync('./settings/muted.yml', yaml.dump(mutedUsers, { indent: 2, lineWidth: -1 }), 'utf8');
+function saveBan() {
+  fs.writeFileSync('./settings/banned.yml', yaml.dump(bannedUsers, { indent: 2, lineWidth: -1 }), 'utf8');
 }
-loadMutes();
+loadBan();
 
 setInterval(() => {
   let changed = false;
 
-  for (const [username, { unmuteAt }] of Object.entries(mutedUsers)) {
-    if (Date.now() > unmuteAt) {
-      delete mutedUsers[username];
+  for (const [username, { unbanAt }] of Object.entries(bannedUsers)) {
+    if (Date.now() > unbanAt) {
+      delete bannedUsers[username];
       changed = true;
       console.log(
-        chalk.bold.hex('#AFFF48')('[Мут]') + ' ' +
+        chalk.bold.hex('#AFFF48')('[Бан]') + ' ' +
         chalk.hex('#a1a1a1')('Игрок') + ' ' +
         chalk.hex('#ffa53e')(`${username}`) + ' ' +
-        chalk.hex('#a1a1a1')('автоматически размучен (время истекло)')
+        chalk.hex('#a1a1a1')('автоматически разбанен (время истекло)')
       );
     }
   }
 
-  if (changed) saveMutes();
+  if (changed) saveBan();
 }, 10 * 1000);
 
-function muteUser(username, durationMs, reason) {
-  const unmuteAt = Date.now() + durationMs;
-  mutedUsers[username.toLowerCase()] = { unmuteAt, reason };
-  saveMutes();
+function banUser(username, durationMs, reason) {
+  const unbanAt = Date.now() + durationMs;
+  bannedUsers[username.toLowerCase()] = { unbanAt, reason };
+  saveBan();
 }
 
-function unmuteUser(username) {
-  delete mutedUsers[username.toLowerCase()];
-  saveMutes();
+function unbanUser(username) {
+  delete bannedUsers[username.toLowerCase()];
+  saveBan();
 }
 
-function isMuted(username) {
-  const entry = mutedUsers[username.toLowerCase()];
+function isBanned(username) {
+  const entry = bannedUsers[username.toLowerCase()];
   if (!entry) return false;
-  if (Date.now() > entry.unmuteAt) {
-    unmuteUser(username);
+  if (Date.now() > entry.unbanAt) {
+    unbanUser(username);
     return false;
   }
   return true;
 }
 
-function checkMute(username, originalCasedUsername) {
-  if (isMuted(username)) {
-    const { unmuteAt, reason } = mutedUsers[username.toLowerCase()];
-    const msLeft = unmuteAt - Date.now();
+function checkBan(username, originalCasedUsername) {
+  if (isBanned(username)) {
+    const { unbanAt, reason } = bannedUsers[username.toLowerCase()];
+    const msLeft = unbanAt - Date.now();
     const timeLeft = formatDuration(msLeft);
-    bot.chat(`/me &8[&#FF0000✘&8] &6${originalCasedUsername}, вам заткнули рот! Вам сидеть ещё: &e${timeLeft} &8| &6Причина: &e${reason}`);
+    bot.chat(`/me &8[&#FF0000✘&8] &6${originalCasedUsername}, доступ к боту заблокирован! Вам сидеть ещё: &e${timeLeft} &8| &6Причина: &e${reason}`);
     return true;
   }
   return false;
@@ -1050,7 +1050,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     return;
   }
 
-  if (checkMute(realUsername.toLowerCase(), resolvedUsername)) return;
+  if (checkBan(realUsername.toLowerCase(), resolvedUsername)) return;
 
   if (isBlacklisted(realUsername)) {
     await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, вы в чёрном списке бота!`);
@@ -1082,8 +1082,8 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         restart: 'Перезапустить бота',
         info: 'Показывает информацию о боте',
         blacklist: 'Управление чёрным списком',
-        mute: 'Временно запрещает игроку использовать бота',
-        unmute: 'Снимает мут с игрока',
+        ban: 'Заблокировать игроку использование бота',
+        unban: 'Снимает бан с игрока',
         cmd: 'Выдаёт или забирает доступ к командам',
         eco: 'Управление экономикой бота',
         rape: '💀💀💀',
@@ -1093,9 +1093,9 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       };
 
       const commandsByRole = {
-        owner: ['help', 'msg', 'run', 'exit', 'info', 'blacklist', 'mute', 'unmute', 'cmd',
+        owner: ['help', 'msg', 'run', 'exit', 'info', 'blacklist', 'ban', 'unban', 'cmd',
           'feedback', 'balance', 'shop', 'pay', 'eco', 'code', 'restart', 'bcode'],
-        moder: ['help', 'msg', 'run', 'info', 'mute', 'unmute', 'blacklist',
+        moder: ['help', 'msg', 'run', 'info', 'ban', 'unban', 'blacklist',
           'feedback', 'balance', 'shop', 'pay', 'code'],
         user: ['help', 'info', 'feedback', 'balance', 'shop', 'pay', 'code']
       };
@@ -1309,22 +1309,22 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       break;
     }
 
-    case 'mute': {
+    case 'ban': {
       const targetUser = parts[1];
       const target = targetUser ? targetUser.toLowerCase() : null;
       const timeStr = parts[2];
       const reason = parts.slice(3).join(' ') || 'Без причины';
 
       if (!target || !timeStr || !/^\d+[smhd]$/.test(timeStr)) {
-        if (source === 'mc') await bot.chat(`/me &8[&e🛈&8] &c${displayName}, используйте: &e${config.botprefix}mute &8<&eник&8> &8<&bвремя&8> &8<&aпричина&8>`);
-        else await outputToDiscord(`\`\`\`\nИспользуйте: ${config.botprefix}mute <ник> <время> <причина>\`\`\``);
+        if (source === 'mc') await bot.chat(`/me &8[&e🛈&8] &c${displayName}, используйте: &e${config.botprefix}ban &8<&eник&8> &8<&bвремя&8> &8<&aпричина&8>`);
+        else await outputToDiscord(`\`\`\`\nИспользуйте: ${config.botprefix}ban <ник> <время> <причина>\`\`\``);
         return;
       }
 
       const role = getRole(target);
       if (!isConsole && (role === 'moder' || role === 'owner')) {
-        if (source === 'mc') await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, нельзя заткнуть рот ${role === 'owner' ? 'владельцу' : 'модеру'}.`);
-        else await outputToDiscord(`\`\`\`\nНельзя заткнуть рот ${role === 'owner' ? 'владельцу' : 'модеру'}.\`\`\``);
+        if (source === 'mc') await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, нельзя заблокировать ${role === 'owner' ? 'владельца' : 'модера'}.`);
+        else await outputToDiscord(`\`\`\`\nНельзя заблокировать ${role === 'owner' ? 'владельца' : 'модера'}.\`\`\``);
         return;
       }
 
@@ -1341,28 +1341,28 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         return;
       }
 
-      muteUser(target, ms, reason);
-      await bot.chat(`/me &8[&#00ff00🛈&8] &e${displayName} &aзатутил &e${targetUser} &aна &e${timeStr} &8| &aПричина: &e${reason}`);
-      if (source === 'discord') await outputToDiscord(`\`\`\`\nВы замутили ${targetUser} на ${timeStr} | Причина: ${reason}\`\`\``);
+      banUser(target, ms, reason);
+      await bot.chat(`/me &8[&#00ff00🛈&8] &e${displayName} &aзаблокировал &e${targetUser} &aна &e${timeStr} &8| &aПричина: &e${reason}`);
+      if (source === 'discord') await outputToDiscord(`\`\`\`\nВы заблокировали ${targetUser} на ${timeStr} | Причина: ${reason}\`\`\``);
       break;
     }
 
-    case 'unmute': {
+    case 'unban': {
       const targetUser = parts[1];
       const target = targetUser ? targetUser.toLowerCase() : null;
       if (!target) {
-        if (source === 'mc') await bot.chat(`/me &8[&e🛈&8] &c${displayName}, используйте: &e${config.botprefix}unmute &8<&eник&8>`);
-        else await outputToDiscord(`\`\`\`\nИспользуйте: ${config.botprefix}unmute <ник>\`\`\``);
+        if (source === 'mc') await bot.chat(`/me &8[&e🛈&8] &c${displayName}, используйте: &e${config.botprefix}unban &8<&eник&8>`);
+        else await outputToDiscord(`\`\`\`\nИспользуйте: ${config.botprefix}unban <ник>\`\`\``);
         return;
       }
-      if (!mutedUsers[target]) {
+      if (!bannedUsers[target]) {
         if (source === 'mc') await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, игрок &e${targetUser} &cне в муте.`);
-        else await outputToDiscord(`\`\`\`\nИгрок ${targetUser} не в муте.\`\`\``);
+        else await outputToDiscord(`\`\`\`\nИгрок ${targetUser} не в бане.\`\`\``);
         return;
       }
-      unmuteUser(target);
-      await bot.chat(`/me &8[&#00ff00🛈&8] &e${displayName} &aразмутил &e${targetUser}.`);
-      if (source === 'discord') await outputToDiscord(`\`\`\`\nВы размутили ${targetUser}\`\`\``);
+      unbanUser(target);
+      await bot.chat(`/me &8[&#00ff00🛈&8] &e${displayName} &aразбанил &e${targetUser}.`);
+      if (source === 'discord') await outputToDiscord(`\`\`\`\nВы разбанил ${targetUser}\`\`\``);
       break;
     }
 
@@ -2052,7 +2052,7 @@ rl.on('line', async (input) => {
   const trimmed = input.trim();
   const lowered = trimmed.toLowerCase();
 
-  const consoleCommands = ['blacklist', 'eco', 'cmd', 'mute', 'unmute', 'rape', 'exit', 'info', 'bcode', 'restart'];
+  const consoleCommands = ['blacklist', 'eco', 'cmd', 'ban', 'unban', 'rape', 'exit', 'info', 'bcode', 'restart'];
 
   if (consoleCommands.some(cmd => lowered.startsWith(config.botprefix + cmd))) {
     await processUserCommand('CONSOLE', trimmed);
