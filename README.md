@@ -1,1 +1,1 @@
-govnocode by ChatGPT
+govnocode by ChatGPT and deepseek
