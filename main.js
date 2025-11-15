@@ -678,6 +678,8 @@ async function processAI(realNick, msgText) {
 
   if (checkBan(realNick.toLowerCase(), realNick)) return;
 
+  if (realNick.toLowerCase() === bot.username.toLowerCase()) return; 
+
   if (isBlacklisted(realNick.toLowerCase())) {
     await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, вы в чёрном списке бота!`);
     return;
@@ -1040,7 +1042,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   const cmd = parts[0].toLowerCase().replace(config.botprefix, '');
 
   if (source === 'discord' && discordBlockedCommands.includes(cmd)) {
-    await outputToDiscord(`\`\`\`\n${displayName}, команда ${config.botprefix}${cmd} недоступна через Discord.\n\`\`\``);
+    await outputToDiscord(`\`\`\`\nКоманда ${config.botprefix}${cmd} недоступна через Discord.\n\`\`\``);
     return;
   }
 
