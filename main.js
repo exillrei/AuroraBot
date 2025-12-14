@@ -194,20 +194,6 @@ discordClient.on('messageCreate', async (msg) => {
   }
 });
 
-discordClient.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-
-  if (interaction.commandName === 'version') {
-    await interaction.reply({
-      content: [
-        '<:asjdnc:1344009811288653824> Версия: **v2.0**',
-        '<:ksjsk:1397677302602530826> Создатель: **exillrei**'
-      ].join('\n'),
-      ephemeral: false
-    });
-  }
-});
-
 const legacyColors = {
   black: "#000000",
   dark_blue: "#0000AA",
@@ -1884,7 +1870,7 @@ bot.on('message', async (jsonMsg) => {
     bot.chat("/console");
   }
 
-  if (text.startsWith("Не удалось подключить вас к серверу")) {
+  if (parsed.startsWith("Не удалось подключить вас к серверу" || "Exception Connecting:ReadTimeoutException : null")) {
     try {
       await bot.chat("/games");
 
@@ -1896,24 +1882,8 @@ bot.on('message', async (jsonMsg) => {
     }
   }
 
-  if (text === '---------------------------------') {
-    if (!collectingBlock) {
-      collectingBlock = true;
-      blockBuffer = [];
-    } else {
-      collectingBlock = false;
-      if (blockBuffer.length > 0) {
-        const finalMessage = blockBuffer.join("\n");
-        outputToDiscord(`\`\`\`\n${finalMessage}\n\`\`\``);
-      }
-    }
-  } else if (collectingBlock) {
-    blockBuffer.push(text);
-  }
-
   if (pendingDiscordRun) {
-    const cleanText = parseFormattedMessage(jsonMsg.json || jsonMsg);
-    if (cleanText?.trim()) collectedRunOutput.push(cleanText.trim());
+    if (parsed?.trim()) collectedRunOutput.push(parsed.trim());
     if (runTimeout) clearTimeout(runTimeout);
     runTimeout = setTimeout(async () => {
       if (collectedRunOutput.length > 0) {
