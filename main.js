@@ -1870,7 +1870,7 @@ bot.on('message', async (jsonMsg) => {
     bot.chat("/console");
   }
 
-  if (parsed.startsWith("Не удалось подключить вас к серверу" || "Exception Connecting:ReadTimeoutException : null")) {
+  if (parsed.startsWith("Не удалось подключить вас к серверу") || parsed.startsWith("Exception Connecting:ReadTimeoutException : null")) {
     try {
       await bot.chat("/games");
 
