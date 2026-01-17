@@ -2210,7 +2210,7 @@ rl.on('line', async (input) => {
     }
 
     try {
-      await outputToDiscord(msg);
+      await discordOutput.send(msg);
       console.log(chalk.hex('#7CB6FF')(t("other.console.discord.sended")));
     } catch (err) {
       console.error(chalk.hex('#7CB6FF')(`${t('other.console.discord.send_error')}: ${err}`));
