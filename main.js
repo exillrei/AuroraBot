@@ -1542,7 +1542,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (!target) {
         if (source === 'mc') await bot.chat(`/me &8[&e🛈&8] ${t('bot.cmd.rape.usage', { username: displayName, prefix: config.botprefix })}`);
-        if (source === 'mc') await outputToDiscord(`\`\`\`\n${t('bot.cmd.rape.usagedc', { prefix: config.botprefix })}\n\`\`\``);
+        if (source === 'discord') await outputToDiscord(`\`\`\`\n${t('bot.cmd.rape.usagedc', { prefix: config.botprefix })}\n\`\`\``);
         return;
       }
 
