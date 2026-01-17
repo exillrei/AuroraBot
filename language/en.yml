@@ -110,7 +110,7 @@ bot:
       removed_dc: "You removed player {user} from the blacklist."
     ban:
       usage: "use: &e{prefix}ban &8<&ename&8> &8<&btime&8> &8<&areason&8>"
-      usagedc: "Use: {prefix}ban <name> <time> <&areason>"
+      usagedc: "Use: {prefix}ban <name> <time> <reason>"
       cannot_ban: "Cannot ban {role}."
       bad_time: "Invalid time format."
       success_mc: "&e{by} &aban &e{user} &afor &e{time} &8| &aReason: &e{reason}"
