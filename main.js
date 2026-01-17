@@ -1101,7 +1101,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (source === 'discord') {
         const detailedList = commandsList
-          .map(cmd => `${config.botprefix}${cmd} » ${commandDescriptions[cmd] || 'Нет описания.'}`)
+          .map(cmd => `${config.botprefix}${cmd} » ${commandDescriptions[cmd] || '???'}`)
           .join('\n');
 
         await outputToDiscord(`\`\`\`\n${detailedList}\n\`\`\``);
@@ -1119,7 +1119,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         const all = [...new Set([...baseCommands, ...extraPerms])];
 
         const withPrefix = all.map(c => config.botprefix + c);
-        await bot.chat(`/me &8[&e🛈&8] &e${displayName}, &aтвои доступные команды: &e${withPrefix.join(', ')}`);
+        await bot.chat(`/me &8[&e🛈&8] &e${displayName}, ${t('bot.cmd.availablecmds')} &e${withPrefix.join(', ')}`);
       }
 
       break;
@@ -1914,7 +1914,14 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       let newValue;
 
-      if (typeof config[param] === "boolean") {
+      if (param === 'lang') {
+        const availableLangs = Object.keys(languages);
+        if (!availableLangs.includes(value)) {
+          outputToDiscord(`\`\`\`\n${t('bot.cmd.config.invalid_value', { value })}. ${t('bot.cmd.config.availablelangs')} ${availableLangs.join(', ')}\`\`\``);
+          break;
+        }
+        newValue = value;
+      } else if (typeof config[param] === "boolean") {
         if (!["true", "false"].includes(value.toLowerCase())) {
           outputToDiscord(`\`\`\`\n${t('bot.cmd.config.boolean_usage', { param })}\`\`\``);
           break;

@@ -203,6 +203,7 @@ bot:
       autoconsole: "Auto-enable /console"
       testmode: "Testing mode"
       lang: "Bot language"
+      availablelangs: "Available languages:"
   yes: "Yes"
   no: "No"
   unknowncmd: "Unknown command: {cmd}"
