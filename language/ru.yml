@@ -110,7 +110,7 @@ bot:
       removed_dc: "Вы убрали игрока {user} из чёрного списка."
     ban:
       usage: "используйте: &e{prefix}ban &8<&eник&8> &8<&bвремя&8> &8<&aпричина&8>"
-      usagedc: "Используйте: {prefix}ban <ник> <время> <&aпричина>"
+      usagedc: "Используйте: {prefix}ban <ник> <время> <причина>"
       cannot_ban: "нельзя заблокировать {role}."
       bad_time: "неверный формат времени."
       success_mc: "&e{by} &aзаблокировал &e{user} &aна &e{time} &8| &aПричина: &e{reason}"
