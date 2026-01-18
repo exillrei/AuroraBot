@@ -1083,7 +1083,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   const cmd = parts[0].toLowerCase().replace(config.botprefix, '');
 
   if (source === 'discord' && discordBlockedCommands.includes(cmd)) {
-    await outputToDiscord(`${displayName}, команда ${config.botprefix}${cmd} недоступна через Discord.`);
+    await outputToDiscord(`${t('bot.cmd.discordblocked', { prefix: config.botprefix, cmd })}`);
     return;
   }
 
