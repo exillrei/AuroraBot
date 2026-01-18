@@ -951,10 +951,10 @@ function formatDuration(ms) {
   const days = Math.floor(ms / (1000 * 60 * 60 * 24));
 
   const parts = [];
-  if (days) parts.push(`${days}д`);
-  if (hours) parts.push(`${hours}ч`);
-  if (minutes) parts.push(`${minutes}м`);
-  if (seconds) parts.push(`${seconds}с`);
+  if (days) parts.push(`${days}d`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  if (seconds) parts.push(`${seconds}s`);
 
   return parts.join(' ');
 }
