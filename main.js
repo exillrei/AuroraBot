@@ -1295,7 +1295,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           if (source === 'mc') {
             await bot.chat(`/me &8[&e🛈&8] &e${displayName}, &a${t('bot.cmd.blacklist.list', { list: blacklist.join(', ') })}`);
           } else {
-            await outputToDiscord(`${t('bot.cmd.blacklist.list', { list: blacklist.join(', ') })}`);
+            await outputToDiscord(`${t('bot.cmd.blacklist.listdc', { list: blacklist.join(', ') })}`);
           }
         }
         break;
@@ -1305,7 +1305,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         if (source === 'mc') {
           await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.blacklist.usage_sub', { prefix: config.botprefix, subcmd })}`);
         } else {
-          await outputToDiscord(`${t('bot.cmd.blacklist.usage_sub', { prefix: config.botprefix, subcmd })}`);
+          await outputToDiscord(`${t('bot.cmd.blacklist.usage_subdc', { prefix: config.botprefix, subcmd })}`);
         }
         break;
       }
@@ -1328,7 +1328,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           if (source === 'mc') {
             await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.already', { user: targetUser })}`);
           } else {
-            await outputToDiscord(`${t('bot.cmd.blacklist.already', { user: targetUser })}`);
+            await outputToDiscord(`${t('bot.cmd.blacklist.alreadydc', { user: targetUser })}`);
           }
         } else {
           addToBlacklist(target);
@@ -1345,7 +1345,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           if (source === 'mc') {
             await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.not_in', { user: targetUser })}`);
           } else {
-            await outputToDiscord(`${t('bot.cmd.blacklist.not_in', { user: targetUser })}`);
+            await outputToDiscord(`${t('bot.cmd.blacklist.not_indc', { user: targetUser })}`);
           }
         } else {
           removeFromBlacklist(target);
@@ -1430,7 +1430,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         if (source === 'mc')
           await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.unban.not_banned', { user: targetUser })}`);
         else
-          await outputToDiscord(`${t('bot.cmd.unban.not_banned', { user: targetUser })}\`\`\``);
+          await outputToDiscord(`${t('bot.cmd.unban.not_banneddc', { user: targetUser })}\`\`\``);
         return;
       }
 
