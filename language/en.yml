@@ -72,6 +72,7 @@ bot:
       spammer: "Spam messages/commands"
       config: "Bot settings"
     availablecmds: "&ayour available commands:"
+    discordblocked: "Command {prefix}{cmd} unavailable via Discord."
     info: "&e{displayName}, &aBot creator: &#FF5500🔥 exillrei 🔥 &8| &aCommands: &e{prefix}help &8| &aChat with AI: &#00FF89bot, your text &8| &aBot uptime: &#009EFF{uptime} ⌚"
     info_dc: "Bot creator: exillrei\nCommands: {prefix}help\nBot uptime: {uptime} ⌚"
     msg:
