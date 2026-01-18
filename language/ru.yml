@@ -72,6 +72,7 @@ bot:
       spammer: "Спам сообщениями/командами"
       config: "Настройки бота"
     availablecmds: "&aтвои доступные команды:"
+    discordblocked: "Команда {prefix}{cmd} недоступна через Discord."
     info: "&e{displayName}, &aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e{prefix}help &8| &aОбщение с нейросетью: &#00FF89бот, ваш текст &8| &aАптайм бота: &#009EFF{uptime} ⌚"
     info_dc: "Создатель бота: exillrei\nСписок команд: {prefix}help\nАптайм бота: {uptime} ⌚"
     msg:
