@@ -146,8 +146,8 @@ bot:
     rape:
       usage: "&c{username}, specify a player: &e{prefix}rape &8<&ename&8>"
       usagedc: "Specify a player: {prefix}rape <name>"
-      infected_mc: "&e{by} &ainfected &d{disease} &aplayer &b{user}."
-      infected_dc: "You infected &d{disease} &aplayer {user}."
+      infected: "&e{by} &ainfected &d{disease} &aplayer &b{user}."
+      infected_dc: "You infected {disease} player {user}."
     balance:
       your: "&e{username}, &ayour balance: &6{balance}⛃."
       target: "&e{username}, &abalance of &e{target}: &6{balance}⛃"
