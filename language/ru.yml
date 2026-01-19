@@ -146,7 +146,7 @@ bot:
     rape:
       usage: "&c{username}, укажите ник: &e{prefix}rape &8<&eник&8>"
       usagedc: "Укажите ник: {prefix}rape <ник>"
-      infected_mc: "&e{by} &aзаразил &d{disease} &aигрока &b{user}."
+      infected: "&e{by} &aзаразил &d{disease} &aигрока &b{user}."
       infected_dc: "Вы заразили {disease} игрока {user}."
     balance:
       your: "&e{username}, &aтвой баланс: &6{balance}⛃."
