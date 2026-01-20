@@ -1,61 +1,60 @@
 > [!NOTE]
 > govnocoded by ChatGPT
 
-# 🌠 AuroraBot - Функциональный бот для Minecraft
+[Русская версия](https://github.com/exillrei/AuroraBot/blob/main/README-ru.md)
+[中文版本](https://github.com/exillrei/AuroraBot/blob/main/README-cn.md)
+# 🌠 AuroraBot - A functional bot for Minecraft
 
-Какой есть функционал в боте?:  
- **1.** Команды  
- **2.** Экономика  
- **3.** Магазин  
- **4.** Чат-Игра  
- **5.** Управление бота через Discord  
- **6.** Локализация. Доступные языки: ru, en  
+What features are in the bot?:  
+ **1.** Commands  
+ **2.** Economy  
+ **3.** Shop  
+ **4.** Chat-Game  
+ **5.** Bot management via Discord  
+ **6.** Localization. Available languages: ru, en, cn  
 
-## 🛠️ Установка
+## 🛠️ Installation
 
-**1.** Установите [NodeJS](https://nodejs.org/en/download/)  
-**2.** После установки скачайте [архив](https://github.com/exillrei/AuroraBot/releases)  
-**3.** Разархивируйте архив в любом месте и запустите оттуда терминал (командную строку)  
-**4.** Установите зависимости:  
+**1.** Install [NodeJS](https://nodejs.org/en/download/)  
+**2.** After installation, download the [archive](https://github.com/exillrei/AuroraBot/releases)  
+**3.** Extract the archive anywhere and open a terminal (command prompt) there  
+**4.** Install dependencies:  
 ```npm install```  
-**5.** Готово! Вы установили бота. Как использовать? - написано ниже  
+**5.** Done! You have installed the bot. How to use? - written below  
 
-## 🤔 Использование
+## 🤔 Usage
 
-Запуск бота:  
+Starting the bot:  
 ```node bot```  
 
-Префикс бота: **$**  
-
-Команды бота:  
-help - Показывает список доступных команд  
-msg - Отправляет сообщение в чат от имени бота  
-run - Выполняет серверную команду от имени бота  
-exit - Завершить работу бота  
-restart - Перезапустить бота  
-info - Показывает информацию о боте  
-blacklist - Управление чёрным списком  
-ban - Заблокировать игроку использование бота  
-unban - Снимает бан с игрока  
-cmd - Выдаёт или забирает доступ к командам  
-eco - Управление экономикой бота  
+Bot prefix: **$** Bot commands:  
+help - Shows the list of available commands  
+msg - Sends a message in chat as the bot  
+run - Executes a server command as the bot  
+exit - Shut down the bot  
+restart - Restart the bot  
+info - Shows bot information  
+blacklist - Blacklist management  
+ban - Block a player from using the bot  
+unban - Removes a ban from a player  
+cmd - Grants or revokes access to commands  
+eco - Bot economy management  
 rape - 💀💀💀  
-list - Список игроков на сервере  
-spammer - Спам командами  
-config - Настройки бота  
-balance - Показать свой баланс монеток  
-shop - Магазин  
-feedback - Отзывы о боте  
-pay - Отправить игроку свои монетки  
-code - Коды  
-bcode - Оповещение кодов  
+list - List of players on the server  
+spammer - Command spammer  
+config - Bot settings  
+balance - Show your coin balance  
+shop - Shop  
+feedback - Bot reviews  
+pay - Send your coins to a player  
+code - Codes  
+bcode - Code notification  
 
 > [!NOTE]
-> Для команды restart нужен **PM2**  
-> Установка **PM2**:  
+> The restart command requires **PM2** > **PM2** installation:  
 > ```npm install pm2```  
-> Запуск бота через **PM2**:  
+> Starting the bot via **PM2**:  
 > ```pm2 start ecosystem.config.cjs```  
 
 > [!NOTE]
-> Не забудьте отредактировать **main.js** и **.env** под себя
+> Don't forget to edit **main.js** and **.env** for yourself
