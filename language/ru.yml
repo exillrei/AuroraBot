@@ -25,6 +25,7 @@ bot:
   groups_prefix: "[Группы]"
   groups_loaded: "Загружены."
   errorload: "Ошибка загрузки:"
+  error_occurred: "Произошла ошибка:"
   update: "Обнаружено изменение, обновление..."
   blacklist_prefix: "[Чёрный список]"
   blacklist_saved: "Сохранён"
@@ -40,6 +41,7 @@ bot:
   ai_cooldown: "подождите немного, бот отдыхает"
   ai_think: "Думаю..."
   suspiciousactivity: "Подозрительная активность"
+  suspiciousactivity_verify: "Проверьте это сообщение!"
   error_prefix: "[Ошибка]"
   ban_prefix: "[Бан]"
   ban_player: "Игрок"
@@ -74,7 +76,11 @@ bot:
     availablecmds: "&aтвои доступные команды:"
     discordblocked: "Команда {prefix}{cmd} недоступна через Discord."
     info: "&e{displayName}, &aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e{prefix}help &8| &aОбщение с нейросетью: &#00FF89бот, ваш текст &8| &aАптайм бота: &#009EFF{uptime} ⌚"
-    info_dc: "Создатель бота: exillrei\nСписок команд: {prefix}help\nАптайм бота: {uptime} ⌚"
+    info_dc:
+      info: "Информация"    
+      creator: "👤 Создатель бота:"
+      help: "🔧 Список команд:"
+      uptime: "⌚ Аптайм бота:"
     msg:
       from: "&6Сообщение от"
       nocmds: "В {prefix}msg запрещено использовать команды бота."
@@ -82,7 +88,9 @@ bot:
     run:
       nocmds: "В {prefix}run запрещено использовать команды бота."
       blockedcmd: "Эта команда запрещена для использования."
-      nomsg: 'Команда "{cmd}" не вернула сообщений.'
+      nomsg: "Команда \"{cmd}\" не вернула сообщений."
+      executing: "Выполнение команды"
+      command: "Команда: /{command}"
     exit:
       botexit: "&6Бот завершает работу..."
       botexit_dc: "Бот завершает работу..."

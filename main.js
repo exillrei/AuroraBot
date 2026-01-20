@@ -149,7 +149,7 @@ process.on('uncaughtException', async (err) => {
   console.error('[uncaughtException]', err);
 
   try {
-    await outputToDiscord(`Uncaught Exception:\n${err.stack || err.message}`);
+    await discordOutput.send({ embeds: [sendEmbed(`⚠️ Uncaught Exception`, ``, { color: 0xf1c40f, footer: 'WARN', fields: [{ name: `${t('bot.error_occurred')}`, value: `\`\`\`${err.stack || err.message}\`\`\``, inline: true }], timestamp: true })] });
   } catch (e) {
     console.error(chalk.hex('#FF7C7C')(e));
   }
@@ -159,7 +159,7 @@ process.on('unhandledRejection', async (reason, promise) => {
   console.error('[unhandledRejection]', reason);
 
   try {
-    await outputToDiscord(`Unhandled Rejection:\n${reason.stack || reason}`);
+    await discordOutput.send({ embeds: [sendEmbed(`⚠️ Unhandled Rejection`, ``, { color: 0xf1c40f, footer: 'WARN', fields: [{ name: `${t('bot.error_occurred')}`, value: `\`\`\`${reason.stack || reason}\`\`\``, inline: true }], timestamp: true })] });
   } catch (e) {
     console.error(chalk.hex('#FF7C7C')(e));
   }
@@ -389,6 +389,55 @@ async function logToDiscordChatLog(message) {
       chalk.hex('#FF7C7C')(`${t('discord.log_error')}: ${err}`)
     );
   }
+}
+
+function sendEmbed(
+  title = null,
+  description = null,
+  {
+    color = 0x2f3136,
+    fields = [],
+    footer = null,
+    footerIcon = null,
+    author = null,
+    authorIcon = null,
+    authorUrl = null,
+    thumbnail = null,
+    image = null,
+    timestamp = false,
+    url = null
+  } = {}
+) {
+  const embed = new EmbedBuilder();
+
+  if (color) embed.setColor(color);
+  if (title) embed.setTitle(title);
+  if (description) embed.setDescription(description);
+  if (url) embed.setURL(url);
+
+  if (author) {
+    embed.setAuthor({
+      name: author,
+      iconURL: authorIcon || undefined,
+      url: authorUrl || undefined
+    });
+  }
+
+  if (footer) {
+    embed.setFooter({
+      text: footer,
+      iconURL: footerIcon || undefined
+    });
+  }
+
+  if (thumbnail) embed.setThumbnail(thumbnail);
+  if (image) embed.setImage(image);
+
+  if (fields.length) embed.addFields(fields);
+
+  if (timestamp) embed.setTimestamp(new Date());
+
+  return embed;
 }
 
 function getFormattedTimestamp() {
@@ -1146,7 +1195,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (source === 'mc') {
         await bot.chat(`/me &8[&e✦&8] ${t('bot.cmd.info', { displayName: displayName, prefix: config.botprefix, uptime: formatted })}`);
       } else {
-        await outputToDiscord(`${t('bot.cmd.info_dc', { prefix: config.botprefix, uptime: formatted })}`);
+        await discordOutput.send({ embeds: [sendEmbed(`ℹ️ ${t('bot.cmd.info_dc.info')}`, ``, { color: 0x5499f4, footer: 'INFO', fields: [{ name: `${t('bot.cmd.info_dc.creator')}`, value: `**exillrei**`, inline: true }, { name: `${t('bot.cmd.info_dc.help')}`, value: `**${config.botprefix}help**`, inline: true }, { name: `${t('bot.cmd.info_dc.uptime')}`, value: `**${formatted}**`, inline: true }], timestamp: true })] });
       }
       break;
     }
@@ -1212,7 +1261,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           }
         } else {
           if (pendingDiscordRun?.source === 'discord') {
-            await outputToDiscord(`${t('bot.cmd.run.nomsg', { cmd: pendingDiscordRun.command })}`);
+            await discordOutput.send({ embeds: [sendEmbed(`⚠️ ${t('bot.cmd.run.executing')}`, ``, { color: 0xf1c40f, footer: 'WARN', fields: [{ name: `${t('bot.error_occurred')}`, value: `\`\`\`${t('bot.cmd.run.nomsg', { cmd: pendingDiscordRun.command })}\`\`\``, inline: true }], timestamp: true })] });
           }
         }
         pendingDiscordRun = null;
@@ -1901,7 +1950,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const hiddenParams = ['host', 'port', 'botnick'];
 
       if (!args[0]) {
-        let config_list = "```\n" + t('bot.cmd.config.list_header') + "\n";
+        let config_list = t('bot.cmd.config.list_header') + "\n";
         for (const [key, val] of Object.entries(config)) {
           if (hiddenParams.includes(key)) continue;
           const prettyName = paramMeta[key] || key;
@@ -2048,9 +2097,9 @@ bot.on('message', async (jsonMsg) => {
       if (collectedRunOutput.length > 0) {
         const combined = collectedRunOutput.join('\n');
         if (pendingDiscordRun.source === 'discord')
-          await outputToDiscord(`${combined}`);
+          await discordOutput.send({ embeds: [sendEmbed(`🖥️ ${t('bot.cmd.run.executing')}`, ``, { color: 0x000000, footer: 'RUN', fields: [{ name: `${t('bot.cmd.run.command', { command: pendingDiscordRun.command })}`, value: `\`\`\`${combined}\`\`\``, inline: true }], timestamp: true })] });
       } else if (pendingDiscordRun?.source === 'discord') {
-        await outputToDiscord(`${t('bot.cmd.run.nomsg', { cmd: pendingDiscordRun.command })}`);
+        await discordOutput.send({ embeds: [sendEmbed(`⚠️ ${t('bot.cmd.run.executing')}`, ``, { color: 0xf1c40f, footer: 'WARN', fields: [{ name: `${t('bot.error_occurred')}`, value: `${t('bot.cmd.run.nomsg', { cmd: pendingDiscordRun.command })}`, inline: true }], timestamp: true })] });
       }
       pendingDiscordRun = null;
       collectedRunOutput = [];

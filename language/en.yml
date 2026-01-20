@@ -25,6 +25,7 @@ bot:
   groups_prefix: "[Groups]"
   groups_loaded: "Loaded."
   errorload: "Loading error:"
+  error_occurred: "An error has occurred:"
   update: "Change detected, updating..."
   blacklist_prefix: "[Blacklist]"
   blacklist_saved: "Saved"
@@ -40,6 +41,7 @@ bot:
   ai_cooldown: "please wait a bit, bot is resting"
   ai_think: "Thinking..."
   suspiciousactivity: "Suspicious activity"
+  suspiciousactivity_verify: "Verify this message!"
   error_prefix: "[Error]"
   ban_prefix: "[Ban]"
   ban_player: "Player"
@@ -74,7 +76,11 @@ bot:
     availablecmds: "&ayour available commands:"
     discordblocked: "Command {prefix}{cmd} unavailable via Discord."
     info: "&e{displayName}, &aBot creator: &#FF5500🔥 exillrei 🔥 &8| &aCommands: &e{prefix}help &8| &aChat with AI: &#00FF89bot, your text &8| &aBot uptime: &#009EFF{uptime} ⌚"
-    info_dc: "Bot creator: exillrei\nCommands: {prefix}help\nBot uptime: {uptime} ⌚"
+    info_dc:
+      info: "Information"    
+      creator: "👤 Bot Creator:"
+      help: "🔧 Commands:"
+      uptime: "⌚ Bot Uptime:"
     msg:
       from: "&6Message from"
       nocmds: "Using commands in {prefix}msg is forbidden."
@@ -83,6 +89,8 @@ bot:
       nocmds: "Using commands in {prefix}run is forbidden."
       blockedcmd: "This command is blocked."
       nomsg: "Command \"{cmd}\" returned no messages."
+      executing: "Command execution"
+      command: "Command: /{command}"
     exit:
       botexit: "&6Bot is shutting down..."
       botexit_dc: "Bot is shutting down..."

@@ -25,6 +25,7 @@ bot:
   groups_prefix: "[用户组]"
   groups_loaded: "已加载。"
   errorload: "加载错误："
+  error_occurred: "发生错误:"
   update: "检测到更改，正在更新..."
   blacklist_prefix: "[黑名单]"
   blacklist_saved: "已保存"
@@ -40,6 +41,7 @@ bot:
   ai_cooldown: "请稍等，机器人正在休息"
   ai_think: "思考中..."
   suspiciousactivity: "可疑活动"
+  suspiciousactivity_verify: "验证此消息！"
   error_prefix: "[错误]"
   ban_prefix: "[封禁]"
   ban_player: "玩家"
@@ -74,7 +76,11 @@ bot:
     availablecmds: "&a你可用的命令："
     discordblocked: "命令 {prefix}{cmd} 无法通过 Discord 使用。"
     info: "&e{displayName}，&a机器人作者：&#FF5500🔥 exillrei 🔥 &8| &a命令：&e{prefix}help &8| &aAI 聊天：&#00FF89bot, 你的文本 &8| &a机器人运行时间：&#009EFF{uptime} ⌚"
-    info_dc: "机器人作者：exillrei\n命令：{prefix}help\n机器人运行时间：{uptime} ⌚"
+    info_dc:
+      info: "有关信息"    
+      creator: "👤 机器人作者:"
+      help: "🔧 命令:"
+      uptime: "⌚ 机器人运行时间:"
     msg:
       from: "&6消息来自"
       nocmds: "禁止在 {prefix}msg 中使用命令。"
@@ -83,6 +89,8 @@ bot:
       nocmds: "禁止在 {prefix}run 中使用命令。"
       blockedcmd: "此命令被阻止。"
       nomsg: "命令 \"{cmd}\" 未返回任何消息。"
+      executing: "命令的执行"
+      command: "命令: /{command}"
     exit:
       botexit: "&6机器人正在关闭..."
       botexit_dc: "机器人正在关闭..."
