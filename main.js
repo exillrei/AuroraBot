@@ -68,7 +68,7 @@ function loadLanguages() {
 function t(key, vars = {}) {
   let text = key.split('.').reduce(
     (obj, k) => obj?.[k],
-    languages[config.LANG_DIR]
+    languages[config.lang]
   );
 
   if (text === undefined) return key;
