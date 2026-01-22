@@ -18,6 +18,8 @@ discord:
   msg_command_processing_error: "执行命令时发生错误。"
   output_error: "消息发送错误："
   log_error: "日志发送错误："
+  accessdenied: "拒绝进入"
+  noaccess: "您无权访问该命令:"
 
 # Bot
 bot:
@@ -81,6 +83,9 @@ bot:
       creator: "👤 机器人作者:"
       help: "🔧 命令:"
       uptime: "⌚ 机器人运行时间:"
+      connection: "🔌 连接到:"
+      ping: "↔️ 平 MC/DC:"
+      online: "👥 服务器在线:"
     msg:
       from: "&6消息来自"
       nocmds: "禁止在 {prefix}msg 中使用命令。"

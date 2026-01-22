@@ -230,9 +230,14 @@ discordClient.on('messageCreate', async (msg) => {
   if (content.startsWith(config.botprefix)) {
     try {
       const guildMember = await msg.guild.members.fetch(msg.author.id);
-      const roles = new Set(guildMember.roles.cache.map(role => role.name));
+      const roles = new Set(guildMember.roles.cache.map(role => role.id));
 
       discordRolesMap.set(msg.member.displayName, roles);
+
+      if (msg.author.id && !roles.has('Your ID Role')) {
+        await discordOutput.send({ embeds: [sendEmbed(`⛔ ${t('discord.accessdenied')}`, ``, { color: 0x5499f4, footer: 'DENIED', fields: [{ name: `${t('discord.noaccess')}`, value: `\`\`\`${content}\`\`\``, inline: true }], timestamp: true })] });
+        return;
+      }
 
       await processUserCommand('CONSOLE', content, 'discord', msg.member.displayName);
     } catch (err) {
@@ -1192,10 +1197,15 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     case 'info': {
       const uptime = Date.now() - startTime;
       const formatted = formatUptime(uptime);
+      const ip = bot._client?.socket?.remoteAddress || bot.options?.host || 'Не указан';
+      const port = bot._client?.socket?.remotePort || bot.options?.port || 'Не указан';
+      const ipPort = `${ip}:${port}`;
+	    const discordPing = discordClient.ws.ping;
+	    const mcPing = bot.player?.ping ?? '-';
       if (source === 'mc') {
         await bot.chat(`/me &8[&e✦&8] ${t('bot.cmd.info', { displayName: displayName, prefix: config.botprefix, uptime: formatted })}`);
       } else {
-        await discordOutput.send({ embeds: [sendEmbed(`ℹ️ ${t('bot.cmd.info_dc.info')}`, ``, { color: 0x5499f4, footer: 'INFO', fields: [{ name: `${t('bot.cmd.info_dc.creator')}`, value: `**exillrei**`, inline: true }, { name: `${t('bot.cmd.info_dc.help')}`, value: `**${config.botprefix}help**`, inline: true }, { name: `${t('bot.cmd.info_dc.uptime')}`, value: `**${formatted}**`, inline: true }], timestamp: true })] });
+        await discordOutput.send({ embeds: [sendEmbed(`ℹ️ ${t('bot.cmd.info_dc.info')}`, ``, { color: 0x5499f4, footer: 'INFO', fields: [{ name: `${t('bot.cmd.info_dc.creator')}`, value: `**exillrei**`, inline: true }, { name: `${t('bot.cmd.info_dc.help')}`, value: `**${config.botprefix}help**`, inline: true }, { name: `${t('bot.cmd.info_dc.uptime')}`, value: `**${formatted}**`, inline: true }, { name: `${t('bot.cmd.info_dc.connection')}`, value: `**${ipPort}**`, inline: true }, { name: `${t('bot.cmd.info_dc.online')}`, value: `**${Object.keys(bot.players).length}**`, inline: true }, { name: `${t('bot.cmd.info_dc.ping')}`, value: `**${mcPing}/${discordPing}**`, inline: true }], timestamp: true })] });
       }
       break;
     }

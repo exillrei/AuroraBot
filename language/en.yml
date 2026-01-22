@@ -18,6 +18,8 @@ discord:
   msg_command_processing_error: "An error occurred while executing the command."
   output_error: "Message sending error:"
   log_error: "Log sending error:"
+  accessdenied: "Access denied"
+  noaccess: "You don't have access to the command:"
 
 # Bot
 bot:
@@ -81,6 +83,9 @@ bot:
       creator: "👤 Bot Creator:"
       help: "🔧 Commands:"
       uptime: "⌚ Bot Uptime:"
+      connection: "🔌 Connected to:"
+      ping: "↔️ Ping MC/DC:"
+      online: "👥 Server online:"
     msg:
       from: "&6Message from"
       nocmds: "Using commands in {prefix}msg is forbidden."
