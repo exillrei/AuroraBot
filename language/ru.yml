@@ -19,19 +19,28 @@ discord:
   output_error: "Ошибка отправки сообщения:"
   log_error: "Ошибка отправки сообщения:"
   accessdenied: "Отказано в доступе"
-  noaccess: "У вас нет доступа к команде:"  
+  noaccess: "У вас нет доступа к команде:"
+  dataoutdated: "Данные устарели, вызови команду заново"
+  buttonerror: "Ошибка при обработке кнопки"
+
+# База данных
+db:
+  nodata: "нет данных"
+  nickname: "Ник"
+  role: "Роль"
+  balance: "Баланс"
+  page: "Страница"
+  users: "Пользователи"
+  total: "Всего"
+  engine: "Движок"
+  readerror: "Ошибка чтения базы данных"
 
 # Бот
 bot:
   ai_unavailable: "&8[&#FF0000✘&8] &cОбщение с ИИ временно недоступно."
-  groups_prefix: "[Группы]"
-  groups_loaded: "Загружены."
   errorload: "Ошибка загрузки:"
   error_occurred: "Произошла ошибка:"
   update: "Обнаружено изменение, обновление..."
-  blacklist_prefix: "[Чёрный список]"
-  blacklist_saved: "Сохранён"
-  blacklist_saveerror: "Ошибка сохранения:"
   chatgame_prefix: "[Чат-Игра]"
   chatgame_noquestions: "В чат-игре нет вопросов!"
   chatgame_question: "&dЧат-игра! Вопрос:"
@@ -45,18 +54,14 @@ bot:
   suspiciousactivity: "Подозрительная активность"
   suspiciousactivity_verify: "Проверьте это сообщение!"
   error_prefix: "[Ошибка]"
-  ban_prefix: "[Бан]"
-  ban_player: "Игрок"
-  ban_unbanned: "автоматически разбанен (время истекло)"
   bot_blocked: "&6{username}, доступ к боту заблокирован! Вам сидеть ещё: &e{timeLeft} &8| &6Причина: &e{reason}"
-  economy_prefix: "[Экономика]"
-  economy_nofile: "Файл не найден или повреждён, создаю новый."
-  economy_saved: "Сохранено"
   shop_prefix: "[Магазин]"
   shop_loaded: "Загружен."
   codes_prefix: "[Коды]"
   codes_loaded: "Загружены."
   testmode: "идёт тестирование бота, подождите!"
+  usernotfound: "игрок &e{user} &cне найден!"
+  usernotfounddc: "Игрок {user} не найден!"
   cmd:
     noperm: "у вас нет доступа к"
     descriptions:
@@ -67,7 +72,7 @@ bot:
       restart: "Перезапустить бота"
       info: "Показывает информацию о боте"
       blacklist: "Управление чёрным списком"
-      ban: "Заблокировать игроку использование бота"
+      ban: " Заблокировать игроку использование бота"
       unban: "Снимает бан с игрока"
       cmd: "Выдаёт или забирает доступ к командам"
       eco: "Управление экономикой бота"
@@ -77,7 +82,7 @@ bot:
       config: "Настройки бота"
     availablecmds: "&aтвои доступные команды:"
     discordblocked: "Команда {prefix}{cmd} недоступна через Discord."
-    info: "&e{displayName}, &aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e{prefix}help &8| &aОбщение с нейросетью: &#00FF89бот, ваш текст &8| &aАптайм бота: &#009EFF{uptime} ⌚"
+    info: "&e{displayName}, &aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e{prefix}help &8| &aОбщение с нейросетью: &#00FF89бот, ваш текст &8| &aАптайм бота: &#009EFF{uptime} ⌚ &8| &aВы: {role}"
     info_dc:
       info: "Информация"    
       creator: "👤 Создатель бота:"
@@ -110,13 +115,13 @@ bot:
       launchtype: "&6Перезапуск недоступен, тип запуска: Обычный"
       launchtype_dc: "Перезапуск недоступен, тип запуска: Обычный"
     blacklist:
-      usage: "используйте: &e{prefix}blacklist &aadd&8/&cremove &8<&eник&8> &8| &e{prefix}blacklist info"
-      usagedc: "Используйте: {prefix}blacklist add/remove <ник> | {prefix}blacklist info"
-      empty: "чёрный список пуст."
+      usage: "используйте: &e{prefix}blacklist &aadd&8/&cremove &8<&eник/ID&8> &8| &e{prefix}blacklist info"
+      usagedc: "Используйте: {prefix}blacklist add/remove <ник/ID> | {prefix}blacklist info"
+      empty: "Чёрный список пуст."
       list: "в чёрном списке: &c{list}"
       listdc: "В чёрном списке: {list}"
-      usage_sub: "используйте: &e{prefix}blacklist &b{subcmd} &8<&eник&8>"
-      usage_subdc: "Используйте: {prefix}blacklist {subcmd} <ник>"
+      usage_sub: "используйте: &e{prefix}blacklist &b{subcmd} &8<&eник/ID&8>"
+      usage_subdc: "Используйте: {prefix}blacklist {subcmd} <ник/ID>"
       cannot_manage: "Нельзя добавить/удалить {role} в чёрный список."
       already: "игрок &e{user} &cуже в чёрном списке."
       alreadydc: "Игрок {user} уже в чёрном списке."
@@ -127,22 +132,22 @@ bot:
       removed_mc: "&e{by} &aубрал с чёрного списка игрока &e{user}"
       removed_dc: "Вы убрали игрока {user} из чёрного списка."
     ban:
-      usage: "используйте: &e{prefix}ban &8<&eник&8> &8<&bвремя&8> &8<&aпричина&8>"
-      usagedc: "Используйте: {prefix}ban <ник> <время> <причина>"
+      usage: "используйте: &e{prefix}ban &8<&eник/ID&8> &8<&bвремя&8> &8<&aпричина&8>"
+      usagedc: "Используйте: {prefix}ban <ник/ID> <время> <причина>"
       cannot_ban: "Нельзя заблокировать {role}."
       bad_time: "Неверный формат времени."
       success_mc: "&e{by} &aзаблокировал &e{user} &aна &e{time} &8| &aПричина: &e{reason}"
       success_dc: "Вы заблокировали {user} на {time} | Причина: {reason}"
     unban:
-      usage: "используйте: &e{prefix}unban &8<&eник&8>"
-      usagedc: "Используйте: {prefix}unban <ник>"
+      usage: "используйте: &e{prefix}unban &8<&eник/ID&8>"
+      usagedc: "Используйте: {prefix}unban <ник/ID>"
       not_banned: "игрок &e{user} &cне в бане."
       not_banneddc: "Игрок {user} не в бане."
       success_mc: "&e{by} &aразбанил &e{user}."
       success_dc: "Вы разбанили {user}."
     cmd:
-      usage_mc: "{username}, используйте: &e{prefix}cmd &agive&8/&ctake &8<&eник&8> &8<&bкоманда&8>"
-      usage_discord: "Используйте: {prefix}cmd give/take <ник> <команда>"
+      usage_mc: "{username}, используйте: &e{prefix}cmd &agive&8/&ctake &8<&eник/ID&8> &8<&bкоманда&8>"
+      usage_discord: "Используйте: {prefix}cmd give/take <ник/ID> <команда>"
       give_mc: "&e{by} &aвыдал доступ к команде &b{command} &aигроку &e{user}"
       give_discord: "Вы выдали доступ к команде {command} игроку {user}"
       take_mc: "&e{by} &aотобрал доступ к команде &b{command} &aигроку &e{user}"
@@ -168,14 +173,14 @@ bot:
       top_empty: "&cТоп по балансу пуст."
       top_list: "&eТоп по балансу: {list}"
     eco:
-      usage: "&c{username}, используйте: &e{prefix}eco &agive&8/&ctake &8<&eник&8> &8<&aсумма&8>"
-      usagedc: "Используйте: {prefix}eco give/take <ник> <сумма>"
+      usage: "&c{username}, используйте: &e{prefix}eco &agive&8/&ctake &8<&eник/ID&8> &8<&aсумма&8>"
+      usagedc: "Используйте: {prefix}eco give/take <ник/ID> <сумма>"
       give_mc: "&e{username} &aвыдал игроку &b{target} &6{amount}⛃."
       give_dc: "Вы выдали игроку {target} {amount} монет."
       take_mc: "&e{username} &aзабрал у игрока &b{target} &6{amount}⛃."
       take_dc: "Вы забрали у игрока {target} {amount} монет."
     pay:
-      usage: "используйте: &e{prefix}pay &8<&eник&8> &8<&aсумма&8>"
+      usage: "используйте: &e{prefix}pay &8<&eник/ID&8> &8<&aсумма&8>"
       self: "&c{username}, нельзя перевести монеты самому себе."
       no_money: "&c{username}, недостаточно монет! У тебя только &6{balance}⛃."
       success: "&e{username}, &aвы перевели игроку &b{target} &6{amount}⛃."
@@ -223,9 +228,29 @@ bot:
       testmode: "Режим тестирования"
       lang: "Язык бота"
       availablelangs: "Доступные языки:"
+    role:
+      usage: |
+        Использование:
+        - {prefix}role add <роль> <имя> — создать роль
+        - {prefix}role remove <роль> — удалить роль
+        - {prefix}role set <ник/ID> <роль> — выдать игроку роль
+        - {prefix}role cmd add/remove <роль> <команда> — выдать/отобрать команду у роли
+      usage_add: "Использование: {prefix}role add <роль> <имя>"
+      usage_remove: "Использование: {prefix}role remove <роль>"
+      usage_set: "Использование: {prefix}role set <ник/ID> <роль>"
+      usage_cmd: "Использование: {prefix}role cmd add/remove <роль> <команда>"
+      exists: "Роль {role} уже существует."
+      created: "Роль {role} создана."
+      notfound: "Роль {role} не найдена."
+      removed: "Роль {role} удалена."
+      assigned: "Игрок {user} получил роль {role}."
+      cmd_added: "Команда {command} добавлена роли {role}."
+      cmd_removed: "Команда {command} убрана у роли {role}."
+      unknown_sub: "Неизвестная подкоманда role."
   yes: "Да"
   no: "Нет"
   unknowncmd: "Неизвестная команда: {cmd}"
+
 # Другое
 other:
   bot:

@@ -3,12 +3,46 @@ import mineflayer from 'mineflayer';
 import fetch from 'node-fetch';
 import fs from 'fs';
 import readline from 'readline';
-import { Client, GatewayIntentBits, REST, EmbedBuilder } from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { exec } from "child_process";
 import chalk from "chalk";
 import yaml from 'js-yaml';
 import path from 'path';
 import chokidar from 'chokidar';
+import sqlite3 from 'sqlite3';
+
+const db = new sqlite3.Database('./bot.db');
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    nickname TEXT UNIQUE NOT NULL,
+    role TEXT DEFAULT 'user',
+    balance INTEGER DEFAULT 0
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS bans (
+    nickname TEXT PRIMARY KEY,
+    unbanAt INTEGER NOT NULL,
+    reason TEXT DEFAULT 'Без причины'
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS blacklist (
+    nickname TEXT PRIMARY KEY
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS user_permissions (
+    nickname TEXT NOT NULL,
+    command TEXT NOT NULL,
+    PRIMARY KEY (nickname, command)
+  )
+`);
 
 let config = {};
 
@@ -98,20 +132,15 @@ chokidar.watch(LANG_DIR, { ignoreInitial: true }).on('change', filePath => {
   }
 });
 
-const discordRolesMap = new Map();
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 let discordOutput = null;
 let pendingDiscordRun = null;
 let discordLogOutput;
 const recentMessages = new Set();
 
-const ownerUsername = (username) => group.owners.includes(username.toLowerCase());
-let groups = {};
 const startTime = Date.now();
-let blacklist = [];
 let lastBotCall = 0;
 const botCooldown = 30000;
-let bannedUsers = {};
 let currentGame = null;
 let awaitingAnswer = false;
 let gameTimeout = null;
@@ -124,7 +153,6 @@ const DefaultChatGameRewards = [
 ];
 let purchases = {};
 let shop = [];
-let economy = {};
 let collectedRunOutput = [];
 let runTimeout = null;
 const chatLogList = [];
@@ -174,10 +202,13 @@ discordClient.once('ready', async () => {
   );
 
   const guild = discordClient.guilds.cache.get(process.env.DISCORD_GUILD_ID);
-  if (!guild) return console.warn(
-    chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
-    chalk.hex('#FF7C7C')(t('discord.server_notfound'))
-  );
+  if (!guild) {
+    console.warn(
+      chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+      chalk.hex('#FF7C7C')(t('discord.server_notfound'))
+    );
+    return;
+  }
 
   discordOutput = guild.channels.cache.get(process.env.DISCORD_CHANNEL_ID);
   if (!discordOutput) console.warn(
@@ -192,26 +223,26 @@ discordClient.once('ready', async () => {
   );
 
   bot.once('spawn', async () => {
-    const startType = process.env.pm_id !== undefined ? "PM2" : "Обычный";
+    const startType = process.env.pm_id !== undefined ? 'PM2' : 'Обычный';
     const ip = bot._client?.socket?.remoteAddress || bot.options?.host || 'Не указан';
     const port = bot._client?.socket?.remotePort || bot.options?.port || 'Не указан';
     const ipPort = `${ip}:${port}`;
 
-    if (discordOutput) {
-      const embed = {
-        color: 0x00ff00,
-        title: t('discord.bot_online'),
-        fields: [
-          { name: t('discord.fields.nickname'), value: `\`${bot.username}\``, inline: true },
-          { name: t('discord.fields.start_type'), value: `\`${startType}\``, inline: true },
-          { name: t('discord.fields.ip'), value: `\`${ipPort}\``, inline: true },
-          { name: t('discord.fields.bot_prefix'), value: `\`${config.botprefix}\``, inline: true },
-        ],
-        timestamp: new Date(),
-      };
+    if (!discordOutput) return;
 
-      await discordOutput.send({ embeds: [embed] });
-    }
+    const embed = {
+      color: 0x00ff00,
+      title: t('discord.bot_online'),
+      fields: [
+        { name: t('discord.fields.nickname'), value: `\`${bot.username}\``, inline: true },
+        { name: t('discord.fields.start_type'), value: `\`${startType}\``, inline: true },
+        { name: t('discord.fields.ip'), value: `\`${ipPort}\``, inline: true },
+        { name: t('discord.fields.bot_prefix'), value: `\`${config.botprefix}\``, inline: true },
+      ],
+      timestamp: new Date()
+    };
+
+    await discordOutput.send({ embeds: [embed] });
   });
 });
 
@@ -227,25 +258,69 @@ discordClient.on('messageCreate', async (msg) => {
     chalk.hex('#ffffff')(`${content}`)
   );
 
-  if (content.startsWith(config.botprefix)) {
-    try {
-      const guildMember = await msg.guild.members.fetch(msg.author.id);
-      const roles = new Set(guildMember.roles.cache.map(role => role.id));
+  if (!content.startsWith(config.botprefix)) return;
 
-      discordRolesMap.set(msg.member.displayName, roles);
+  try {
+    const guildMember = await msg.guild.members.fetch(msg.author.id);
+    const roles = new Set(guildMember.roles.cache.map(role => role.id));
 
-      if (msg.author.id && !roles.has('Your ID Role')) {
-        await discordOutput.send({ embeds: [sendEmbed(`⛔ ${t('discord.accessdenied')}`, ``, { color: 0x5499f4, footer: 'DENIED', fields: [{ name: `${t('discord.noaccess')}`, value: `\`\`\`${content}\`\`\``, inline: true }], timestamp: true })] });
-        return;
-      }
+    if (msg.author.id && !roles.has('1397205134957609030')) {
+      await discordOutput.send({ embeds: [sendEmbed(`⛔ ${t('discord.accessdenied')}`, ``, { color: 0x5499f4, footer: 'DENIED', fields: [{ name: `${t('discord.noaccess')}`, value: `\`\`\`${content}\`\`\``, inline: true }], timestamp: true })] });
+      return;
+    }
 
-      await processUserCommand('CONSOLE', content, 'discord', msg.member.displayName);
-    } catch (err) {
-      console.error(
-        chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
-        chalk.hex('#FF7C7C')(`${t('discord.command_processing_error')}: ${err}`)
-      );
-      await msg.reply(`${t('discord.msg_command_processing_error')}`);
+    await processUserCommand('CONSOLE', content, 'discord', msg.member.displayName);
+
+  } catch (err) {
+    console.error(
+      chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+      chalk.hex('#FF7C7C')(`${t('discord.command_processing_error')}: ${err}`)
+    );
+    await msg.reply(`${t('discord.msg_command_processing_error')}`);
+  }
+});
+
+let cachedDatabaseRows = [];
+
+discordClient.on('interactionCreate', async interaction => {
+  if (!interaction.isButton()) return;
+  if (!interaction.customId.startsWith('db_')) return;
+
+  try {
+    if (!cachedDatabaseRows || !cachedDatabaseRows.length) {
+      return interaction.reply({
+        content: `${t('discord.dataoutdated')}`,
+        ephemeral: true
+      });
+    }
+
+    const [, direction, pageStr] = interaction.customId.split('_');
+    let page = Number(pageStr);
+
+    if (direction === 'next') page++;
+    if (direction === 'prev') page--;
+
+    const pageSize = 10;
+    const totalPages = Math.ceil(cachedDatabaseRows.length / pageSize);
+
+    page = Math.max(0, Math.min(page, totalPages - 1));
+
+    const embed = buildDatabaseEmbed(cachedDatabaseRows, page, pageSize);
+    const buttons = buildButtons(page, totalPages);
+
+    await interaction.update({
+      embeds: [embed],
+      components: [buttons]
+    });
+
+  } catch (err) {
+    console.error('BUTTON ERROR:', err);
+
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: `${t('discord.buttonerror')}`,
+        ephemeral: true
+      });
     }
   }
 });
@@ -359,7 +434,7 @@ async function outputToDiscord(message) {
 
     if (!cleanMessage || !cleanMessage.trim()) return;
 
-    const SANITIZE = /([:@~*_|.>\\`])/g;
+    const SANITIZE = /([:@~*_|>\\`])/g;
     const sanitizedText = cleanMessage.replace(SANITIZE, '$1\u200B');
 
     await discordOutput.send('```' + sanitizedText + '```');
@@ -394,6 +469,68 @@ async function logToDiscordChatLog(message) {
       chalk.hex('#FF7C7C')(`${t('discord.log_error')}: ${err}`)
     );
   }
+}
+
+async function resolveUserArg(arg) {
+  if (!arg) return null;
+
+  const idMatch = /^:(\d+)$/.exec(arg);
+  if (idMatch) {
+    const id = parseInt(idMatch[1], 10);
+    const row = await new Promise((res, rej) =>
+      db.get('SELECT nickname FROM users WHERE id = ?', [id], (err, r) => err ? rej(err) : res(r))
+    );
+    return row?.nickname ?? null;
+  }
+
+  return arg;
+}
+
+function buildDatabaseEmbed(rows, page = 0, pageSize = 10) {
+  const totalUsers = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
+
+  page = Math.max(0, Math.min(page, totalPages - 1));
+
+  const start = page * pageSize;
+  const pageRows = rows.slice(start, start + pageSize);
+
+  const userLines = pageRows.length
+    ? pageRows.map(r =>
+      `• **ID:** \`${r.id}\` | **${t('db.nickname')}:** \`${r.nickname}\` | **${t('db.role')}:** \`${r.role}\` | **${t('db.balance')}:** \`${r.balance}\``
+    ).join('\n')
+    : `${t('db.nodata')}`;
+
+  return sendEmbed(
+    '📦 DataBase Info',
+    `${t('db.page')} **${page + 1} / ${totalPages}**`,
+    {
+      color: 0x5865F2,
+      fields: [
+        { name: `👤 ${t('db.users')}`, value: `${t('db.total')}: **${totalUsers}**`, inline: true },
+        { name: `🧠 ${t('db.engine')}`, value: 'SQLite', inline: true },
+        { name: `🏷 ${t('db.users')}`, value: userLines, inline: false }
+      ],
+      footer: 'DATABASE',
+      timestamp: true
+    }
+  );
+}
+
+function buildButtons(page, totalPages) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`db_prev_${page}`)
+      .setLabel('⬅️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page === 0),
+
+    new ButtonBuilder()
+      .setCustomId(`db_next_${page}`)
+      .setLabel('➡️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages - 1)
+  );
 }
 
 function sendEmbed(
@@ -502,7 +639,7 @@ async function queryAI(prompt) {
     if (!response.ok) {
       const errorMsg = `${response.status} ${response.statusText}`;
       bot.chat(`/me ${t('bot.ai_unavailable')} &8(&6${errorMsg}&8)`);
-      console.error('[AI Ошибка]', errorMsg);
+      console.error('[AI]', errorMsg);
     }
 
     const data = await response.json();
@@ -514,88 +651,84 @@ async function queryAI(prompt) {
   } catch (err) {
     const errorText = (err.message || String(err)).slice(0, 80);
     bot.chat(`/me ${t('bot.ai_unavailable')} &8(&6${errorText}&8)`);
-    console.error('[AI Ошибка]', err);
+    console.error('[AI]', err);
   }
 }
 
-function loadGroups() {
+let roles = {};
+
+function loadRoles() {
   try {
-    const file = fs.readFileSync('./settings/groups.yml', 'utf8');
-    groups = yaml.load(file) || {};
-    console.log(
-      chalk.bold.hex('#17c717')(t('bot.groups_prefix')) + ' ' +
-      chalk.hex('#7DFF7C')(t('bot.groups_loaded'))
-    );
-  } catch (err) {
-    console.error(
-      chalk.bold.hex('#17c717')(t('bot.groups_prefix')) + ' ' +
-      chalk.hex('#FF7C7C')(`${t('bot.errorload')}: ${err}`)
-    );
-    groups = {};
+    roles = yaml.load(fs.readFileSync('./settings/roles.yml', 'utf8')) || {};
+  } catch (e) {
+    console.error(e);
+    roles = {};
   }
 }
-loadGroups();
 
-fs.watchFile('./settings/groups.yml', () => {
-  console.log(
-    chalk.bold.hex('#17c717')(t('bot.groups_prefix')) + ' ' +
-    chalk.hex('#FFEA48')(`${t('bot.update')}`)
-  );
-  loadGroups();
-});
+function saveRoles() {
+  fs.writeFileSync('./settings/roles.yml', yaml.dump(roles, { lineWidth: -1 }));
+}
 
-function loadBlacklist() {
+loadRoles();
+
+function getRoles() {
   try {
-    const file = fs.readFileSync('./settings/blacklist.yml', 'utf8');
-    blacklist = yaml.load(file) || [];
-    if (!Array.isArray(blacklist)) blacklist = [];
+    const file = fs.readFileSync('./settings/roles.yml', 'utf8');
+    const data = yaml.load(file);
+    return data || {};
   } catch (err) {
-    console.error(
-      chalk.bold.hex('#17c717')(t('bot.blacklist_prefix')) + ' ' +
-      chalk.hex('#FF7C7C')(`${t('bot.errorload')}: ${err}`)
+    console.error(err);
+    return {};
+  }
+}
+
+
+async function isBlacklisted(username) {
+  if (username === 'CONSOLE') return false;
+  return new Promise((resolve, reject) => {
+    db.get(
+      'SELECT 1 FROM blacklist WHERE nickname = ?',
+      [username],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(!!row);
+      }
     );
-    blacklist = [];
-  }
+  });
 }
-function saveBlacklist() {
-  try {
-    fs.writeFileSync('./settings/blacklist.yml', yaml.dump(blacklist, { indent: 2, lineWidth: -1 }), 'utf8');
-    console.log(
-      chalk.bold.hex('#17c717')(t('bot.blacklist_prefix')) + ' ' +
-      chalk.hex('#FF7C7C')(`${t('bot.blacklist_saved')}`)
+
+async function addToBlacklist(username) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT OR IGNORE INTO blacklist (nickname) VALUES (?)',
+      [username],
+      err => err ? reject(err) : resolve()
     );
-  } catch (err) {
-    console.error(
-      chalk.bold.hex('#17c717')(t('bot.blacklist_prefix')) + ' ' +
-      chalk.hex('#FF7C7C')(`${t('bot.blacklist_saveerror')}: ${err}`)
+  });
+}
+
+async function removeFromBlacklist(username) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'DELETE FROM blacklist WHERE nickname = ?',
+      [username],
+      err => err ? reject(err) : resolve()
     );
-  }
-}
-loadBlacklist();
-
-fs.watchFile('./settings/blacklist.yml', () => {
-  console.log(
-    chalk.bold.hex('#17c717')(t('bot.blacklist_prefix')) + ' ' +
-    chalk.hex('#FFEA48')(`${t('bot.update')}`)
-  );
-  loadBlacklist();
-});
-
-function isBlacklisted(username) {
-  return blacklist.includes(username.toLowerCase());
+  });
 }
 
-function addToBlacklist(username) {
-  if (!blacklist.includes(username.toLowerCase())) {
-    blacklist.push(username.toLowerCase());
-  }
-}
-
-function removeFromBlacklist(username) {
-  const index = blacklist.indexOf(username.toLowerCase());
-  if (index !== -1) {
-    blacklist.splice(index, 1);
-  }
+async function getBlacklist() {
+  return new Promise((resolve, reject) => {
+    db.all(
+      'SELECT nickname FROM blacklist',
+      [],
+      (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows.map(r => r.nickname));
+      }
+    );
+  });
 }
 
 function cleanName(name) {
@@ -624,34 +757,68 @@ function resolveUsername(nickOrDisplayName) {
   return nickOrDisplayName;
 }
 
-function getRole(username) {
-
-  if (username === 'CONSOLE') return 'owner';
-
-  const roles = discordRolesMap.get(username);
-  if (roles) {
-    if (roles.has('Aurora Admin')) return 'owner';
-  }
-
-  if (groups.roles && groups.roles[username]) return groups.roles[username];
-
-  return 'user';
+function getRole(nickname) {
+  return new Promise(resolve => {
+    db.get(
+      'SELECT role FROM users WHERE nickname = ?',
+      [nickname],
+      (err, row) => resolve(row?.role || 'user')
+    );
+  });
 }
 
-function hasPermission(username, command) {
+async function getNextId() {
+  return new Promise((resolve, reject) => {
+    db.all('SELECT id FROM users ORDER BY id', [], (err, rows) => {
+      if (err) return reject(err);
+      let nextId = 1;
+      for (const r of rows) {
+        if (r.id === nextId) nextId++;
+        else break;
+      }
+      resolve(nextId);
+    });
+  });
+}
+
+async function ensureUser(nickname) {
+  if (nickname === 'CONSOLE') return;
+  const nextId = await getNextId();
+
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT OR IGNORE INTO users (id, nickname, role, balance) VALUES (?, ?, ?, ?)',
+      [nextId, nickname, 'user', 0],
+      (err) => err ? reject(err) : resolve()
+    );
+  });
+}
+
+async function hasPermission(username, cmd) {
+  if (!username || !cmd) return false;
+
   if (username === 'CONSOLE') return true;
 
-  const discordRoles = discordRolesMap.get(username);
-  if (discordRoles && discordRoles.has('Aurora Admin')) return true;
-
-  const role = getRole(username);
-  if (role === 'owner') return true;
-  if (role === 'moder' && ['run', 'msg', 'ban', 'unban', 'blacklist'].includes(command)) {
-    return true;
+  const role = await getRole(username);
+  const roleData = roles[role];
+  if (roleData) {
+    const cmds = roleData.cmds || [];
+    if (cmds.includes(cmd)) return true;
   }
 
   const user = username.toLowerCase();
-  return userPerms[user]?.includes(command) || false;
+  cmd = cmd.toLowerCase();
+
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT 1 FROM user_permissions WHERE nickname = ? AND command = ? LIMIT 1`,
+      [user, cmd],
+      (err, row) => {
+        if (err) return reject(err);
+        resolve(!!row);
+      }
+    );
+  });
 }
 
 function isDuplicateMessage(username, message) {
@@ -671,36 +838,53 @@ function formatUptime(ms) {
   return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 }
 
-let userPerms = {};
+async function grantPermission(nickname, command) {
+  if (!nickname || !command) return;
 
-function loadUserPerms() {
-  try {
-    const file = fs.readFileSync('./settings/user_perms.yml', 'utf8');
-    userPerms = yaml.load(file) || {};
-  } catch {
-    userPerms = {};
-  }
-}
-function saveUserPerms() {
-  fs.writeFileSync('./settings/user_perms.yml', yaml.dump(userPerms, { indent: 2, lineWidth: -1 }), 'utf8');
-}
-loadUserPerms();
+  nickname = nickname.toLowerCase();
+  command = command.toLowerCase();
 
-function grantPermission(username, command) {
-  const user = username.toLowerCase();
-  if (!userPerms[user]) userPerms[user] = [];
-  if (!userPerms[user].includes(command)) {
-    userPerms[user].push(command);
-    saveUserPerms();
-  }
+  db.run(
+    `INSERT OR IGNORE INTO user_permissions (nickname, command) VALUES (?, ?)`,
+    [nickname, command],
+    (err) => {
+      if (err) {
+        console.error(err);
+      }
+    }
+  );
 }
 
-function revokePermission(username, command) {
-  const user = username.toLowerCase();
-  if (!userPerms[user]) return;
-  userPerms[user] = userPerms[user].filter(cmd => cmd !== command);
-  if (userPerms[user].length === 0) delete userPerms[user];
-  saveUserPerms();
+async function revokePermission(nickname, command) {
+  if (!nickname || !command) return;
+
+  nickname = nickname.toLowerCase();
+  command = command.toLowerCase();
+
+  db.run(
+    `DELETE FROM user_permissions WHERE nickname = ? AND command = ?`,
+    [nickname, command],
+    (err) => {
+      if (err) {
+        console.error(err);
+      }
+    }
+  );
+}
+
+async function getUserExtraPerms(nickname) {
+  const user = nickname.toLowerCase();
+
+  return new Promise((resolve, reject) => {
+    db.all(
+      `SELECT command FROM user_permissions WHERE nickname = ?`,
+      [user],
+      (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows.map(r => r.command));
+      }
+    );
+  });
 }
 
 function startChatGame() {
@@ -736,7 +920,7 @@ function startChatGame() {
       chalk.hex('#ff7c7c')(`${t('bot.chatgame_readerror')} ${err}`)
     );
   }
-}
+} 
 
 setInterval(() => {
   if (!awaitingAnswer && bot.player) {
@@ -763,7 +947,6 @@ function giveGameReward(username) {
   const reward = pickReward(currentGame.rewards);
   if (reward) {
     changeBalance(username.toLowerCase(), reward);
-    saveEconomy();
     bot.chat(`/me &8[&a❓&8] &e${username} ${t('bot.chatgame_correctanswer')} &e${reward}⛃!`);
   } else {
     bot.chat(`/me &8[&a❓&8] &e${username} ${t('bot.chatgame_correctanswererror')}`);
@@ -773,9 +956,9 @@ function giveGameReward(username) {
 
 async function processAI(realNick, msgText, source = 'mc') {
 
-  if (checkBan(realNick.toLowerCase(), realNick)) return;
+  if (checkBan(realNick)) return;
 
-  if (isBlacklisted(realNick.toLowerCase())) {
+  if (isBlacklisted(realNick)) {
     await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, ${t('bot.blacklisted')}`);
     return;
   }
@@ -876,7 +1059,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
       }
 
       if (parsed.includes(arrowSymbol) && !/^❤?\s?\[(ɢ|ʟ)\]\s?/i.test(parsed)) {
-        await outputToDiscord(`[WARN] ${t('bot.suspiciousactivity')}:\n${parsed}`);
+        await discordOutput.send({ embeds: [sendEmbed(`⚠️ ${t('bot.suspiciousactivity')}`, ``, { color: 0xf1c40f, footer: 'WARN', fields: [{ name: `${parsed}`, value: ``, inline: true }], timestamp: true })] });
         return;
       }
 
@@ -907,7 +1090,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
             );
           }
         }
-        await logToDiscordChatLog(`${timestamp} :speech_balloon: **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
+        await logToDiscordChatLog(`${timestamp} 💬 **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
         return;
       }
 
@@ -928,71 +1111,53 @@ async function sendLongMessage(realUsername, text) {
 
   while (remaining.length > 0) {
     const chunk = limitCharsByWords(remaining, maxLen);
-    await bot.chat(`!&6${originalCasedUsername}, &f${chunk}`);
+    await bot.chat(`/m ${originalCasedUsername} &6${chunk}`);
     remaining = remaining.slice(chunk.length).trim();
     await new Promise(r => setTimeout(r, 3000));
   }
 }
 
-function loadBan() {
-  try {
-    const file = fs.readFileSync('./settings/banned.yml', 'utf8');
-    bannedUsers = yaml.load(file) || {};
-  } catch {
-    bannedUsers = {};
-  }
-}
-function saveBan() {
-  fs.writeFileSync('./settings/banned.yml', yaml.dump(bannedUsers, { indent: 2, lineWidth: -1 }), 'utf8');
-}
-loadBan();
-
-setInterval(() => {
-  let changed = false;
-
-  for (const [username, { unbanAt }] of Object.entries(bannedUsers)) {
-    if (Date.now() > unbanAt) {
-      delete bannedUsers[username];
-      changed = true;
-      console.log(
-        chalk.bold.hex('#AFFF48')(t('bot.ban_prefix')) + ' ' +
-        chalk.hex('#a1a1a1')(t('bot.ban_player')) + ' ' +
-        chalk.hex('#ffa53e')(`${username}`) + ' ' +
-        chalk.hex('#a1a1a1')(t('bot.ban_unbanned'))
-      );
-    }
-  }
-
-  if (changed) saveBan();
-}, 10 * 1000);
-
-function banUser(username, durationMs, reason) {
+async function banUser(username, durationMs, reason) {
   const unbanAt = Date.now() + durationMs;
-  bannedUsers[username.toLowerCase()] = { unbanAt, reason };
-  saveBan();
+  return new Promise((resolve, reject) => {
+    db.run(
+      `INSERT OR REPLACE INTO bans (nickname, unbanAt, reason) VALUES (?, ?, ?)`,
+      [username, unbanAt, reason],
+      err => err ? reject(err) : resolve()
+    );
+  });
 }
 
-function unbanUser(username) {
-  delete bannedUsers[username.toLowerCase()];
-  saveBan();
+async function unbanUser(username) {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM bans WHERE nickname = ?', [username], err => err ? reject(err) : resolve());
+  });
 }
 
-function isBanned(username) {
-  const entry = bannedUsers[username.toLowerCase()];
-  if (!entry) return false;
-  if (Date.now() > entry.unbanAt) {
-    unbanUser(username);
-    return false;
-  }
-  return true;
+async function isBanned(username) {
+  if (username === 'CONSOLE') return false;
+  return new Promise((resolve, reject) => {
+    db.get('SELECT unbanAt, reason FROM bans WHERE nickname = ?', [username], async (err, row) => {
+      if (err) return reject(err);
+      if (!row) return resolve(false);
+
+      if (Date.now() > row.unbanAt) {
+        await unbanUser(username);
+        return resolve(false);
+      }
+
+      resolve({ unbanAt: row.unbanAt, reason: row.reason });
+    });
+  });
 }
 
-function checkBan(username, originalCasedUsername) {
-  if (isBanned(username)) {
-    const { unbanAt, reason } = bannedUsers[username.toLowerCase()];
-    const msLeft = unbanAt - Date.now();
+async function checkBan(username) {
+  if (username === 'CONSOLE') return false;
+  const banInfo = await isBanned(username);
+  if (banInfo) {
+    const msLeft = banInfo.unbanAt - Date.now();
     const timeLeft = formatDuration(msLeft);
-    bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.bot_blocked', { username: originalCasedUsername, timeLeft: timeLeft, reason: reason })}`);
+    bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.bot_blocked', { username: originalCasedUsername, timeLeft: timeLeft, reason: banInfo.reason })}`);
     return true;
   }
   return false;
@@ -1013,37 +1178,36 @@ function formatDuration(ms) {
   return parts.join(' ');
 }
 
-function loadEconomy() {
-  try {
-    const file = fs.readFileSync('./settings/economy.yml', 'utf8');
-    economy = yaml.load(file) || {};
-  } catch (err) {
-    console.warn(
-      chalk.bold.hex('#ff5100')(t('bot.economy_prefix')) + ' ' +
-      chalk.hex('#FF7C7C')(t('bot.economy_nofile'))
+async function getBalance(username) {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT balance FROM users WHERE nickname = ?', [username], (err, row) => {
+      if (err) return reject(err);
+
+      if (!row) {
+        db.run('INSERT INTO users (nickname, role, balance) VALUES (?, ?, ?)', [username, 'user', 0], (err2) => {
+          if (err2) return reject(err2);
+          resolve(0);
+        });
+      } else {
+        resolve(row.balance);
+      }
+    });
+  });
+}
+
+async function changeBalance(username, amount) {
+  const current = await getBalance(username);
+  const newBalance = Math.max(0, current + amount);
+  return new Promise((resolve, reject) => {
+    db.run(
+      'UPDATE users SET balance = ? WHERE nickname = ?',
+      [newBalance, username],
+      (err) => {
+        if (err) return reject(err);
+        resolve(newBalance);
+      }
     );
-    economy = {};
-    saveEconomy();
-  }
-}
-function saveEconomy() {
-  fs.writeFileSync('./settings/economy.yml', yaml.dump(economy, { indent: 2, lineWidth: -1 }), 'utf8');
-  console.log(
-    chalk.bold.hex('#ff5100')(t('bot.economy_prefix')) + ' ' +
-    chalk.hex('#7DFF7C')(t('bot.economy_saved'))
-  );
-}
-loadEconomy();
-
-function getBalance(username) {
-  if (!economy[username]) economy[username] = 0;
-  return economy[username];
-}
-
-function changeBalance(username, amount) {
-  if (!economy[username]) economy[username] = 0;
-  economy[username] += amount;
-  if (economy[username] < 0) economy[username] = 0;
+  });
 }
 
 function loadShop() {
@@ -1118,7 +1282,6 @@ fs.watchFile(CODES_FILE, () => {
 
 async function processUserCommand(realUsername, message, source = 'mc', originalSender = null) {
   const isConsole = realUsername === 'CONSOLE';
-  const resolvedUsername = resolveUsername(realUsername);
   const originalCasedUsername = isConsole ? 'CONSOLE' : resolveUsername(realUsername);
   const displayName = source === 'discord' && originalSender ? originalSender : originalCasedUsername;
 
@@ -1141,21 +1304,21 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     return;
   }
 
-  if (checkBan(realUsername.toLowerCase(), resolvedUsername)) return;
+  if (await checkBan(realUsername)) return;
 
-  if (isBlacklisted(realUsername)) {
+  if (await isBlacklisted(realUsername)) {
     await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.blacklisted')}`);
     return;
   }
 
   if (!alwaysAllowed.includes(cmd) && !isConsole) {
-    if (!hasPermission(realUsername, cmd)) {
+    if (!(await hasPermission(displayName, cmd))) {
       await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.noperm')} &e${config.botprefix}${cmd}!`);
       return;
     }
   }
 
-  if (config.testmode && realUsername.toLowerCase() !== ownerUsername.toLowerCase() && source == 'mc') {
+  if (config.testmode && source == 'mc') {
     await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.testmode')}`);
     return;
   }
@@ -1163,32 +1326,28 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   switch (cmd) {
     case 'help': {
       const effectiveUsername = source === 'discord' ? originalSender : realUsername;
-      const role = getRole(effectiveUsername);
+      const roleName = await getRole(effectiveUsername);
+
+      const rolesData = getRoles();
+      const roleInfo = rolesData[roleName] || { cmds: [] };
+      const baseCommands = roleInfo.cmds || [];
+
+      const extraPerms = await getUserExtraPerms(effectiveUsername)
+      const allCommands = [...new Set([...baseCommands, ...extraPerms, ...alwaysAllowed])];
 
       const commandDescriptions = t('bot.cmd.descriptions') || {};
-      const commandsList = Object.keys(commandDescriptions);
 
       if (source === 'discord') {
-        const detailedList = commandsList
+        const detailedList = allCommands
           .map(cmd => `${config.botprefix}${cmd} » ${commandDescriptions[cmd] || '???'}`)
           .join('\n');
 
-        await outputToDiscord(`${detailedList}`);
+        await outputToDiscord(detailedList);
       } else {
-        const commandsByRole = {
-          owner: ['help', 'msg', 'run', 'exit', 'info', 'blacklist', 'ban', 'unban', 'cmd',
-            'feedback', 'balance', 'shop', 'pay', 'eco', 'code', 'restart', 'bcode'],
-          moder: ['help', 'msg', 'run', 'info', 'ban', 'unban', 'blacklist',
-            'feedback', 'balance', 'shop', 'pay', 'code'],
-          user: ['help', 'info', 'feedback', 'balance', 'shop', 'pay', 'code']
-        };
-
-        const baseCommands = commandsByRole[role] || [];
-        const extraPerms = userPerms[effectiveUsername.toLowerCase()] || [];
-        const all = [...new Set([...baseCommands, ...extraPerms])];
-
-        const withPrefix = all.map(c => config.botprefix + c);
-        await bot.chat(`/me &8[&e🛈&8] &e${displayName}, ${t('bot.cmd.availablecmds')} &e${withPrefix.join(', ')}`);
+        const withPrefix = allCommands.map(c => config.botprefix + c);
+        await bot.chat(
+          `/me &8[&e🛈&8] &e${displayName}, ${t('bot.cmd.availablecmds')} &e${withPrefix.join(', ')}`
+        );
       }
 
       break;
@@ -1200,10 +1359,13 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const ip = bot._client?.socket?.remoteAddress || bot.options?.host || 'Не указан';
       const port = bot._client?.socket?.remotePort || bot.options?.port || 'Не указан';
       const ipPort = `${ip}:${port}`;
-	    const discordPing = discordClient.ws.ping;
-	    const mcPing = bot.player?.ping ?? '-';
+      const discordPing = discordClient.ws.ping;
+      const mcPing = bot.player?.ping ?? '-';
       if (source === 'mc') {
-        await bot.chat(`/me &8[&e✦&8] ${t('bot.cmd.info', { displayName: displayName, prefix: config.botprefix, uptime: formatted })}`);
+        const roleName = await getRole(displayName);
+        const roleData = roles[roleName];
+        const roleDisplay = roleData?.display || "&7???";
+        await bot.chat(`/me &8[&e✦&8] ${t('bot.cmd.info', { displayName: displayName, prefix: config.botprefix, uptime: formatted, role: roleDisplay })}`);
       } else {
         await discordOutput.send({ embeds: [sendEmbed(`ℹ️ ${t('bot.cmd.info_dc.info')}`, ``, { color: 0x5499f4, footer: 'INFO', fields: [{ name: `${t('bot.cmd.info_dc.creator')}`, value: `**exillrei**`, inline: true }, { name: `${t('bot.cmd.info_dc.help')}`, value: `**${config.botprefix}help**`, inline: true }, { name: `${t('bot.cmd.info_dc.uptime')}`, value: `**${formatted}**`, inline: true }, { name: `${t('bot.cmd.info_dc.connection')}`, value: `**${ipPort}**`, inline: true }, { name: `${t('bot.cmd.info_dc.online')}`, value: `**${Object.keys(bot.players).length}**`, inline: true }, { name: `${t('bot.cmd.info_dc.ping')}`, value: `**${mcPing}/${discordPing}**`, inline: true }], timestamp: true })] });
       }
@@ -1332,87 +1494,85 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
     case 'blacklist': {
       const subcmd = parts[1]?.toLowerCase();
-      const targetUser = parts[2];
+      const target = parts[2];
 
       if (!['add', 'remove', 'info'].includes(subcmd || '')) {
-        if (source === 'mc') {
+        if (source === 'mc')
           await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.blacklist.usage', { prefix: config.botprefix })}`);
-        } else {
+        else
           await outputToDiscord(`${t('bot.cmd.blacklist.usagedc', { prefix: config.botprefix })}`);
-        }
         return;
       }
 
       if (subcmd === 'info') {
-        if (!blacklist.length) {
-          if (source === 'mc') {
+        const list = await getBlacklist();
+
+        if (!list.length) {
+          if (source === 'mc')
             await bot.chat(`/me &8[&e🛈&8] &e${displayName}, &c${t('bot.cmd.blacklist.empty')}`);
-          } else {
+          else
             await outputToDiscord(`${t('bot.cmd.blacklist.empty')}`);
-          }
         } else {
-          if (source === 'mc') {
-            await bot.chat(`/me &8[&e🛈&8] &e${displayName}, &a${t('bot.cmd.blacklist.list', { list: blacklist.join(', ') })}`);
-          } else {
-            await outputToDiscord(`${t('bot.cmd.blacklist.listdc', { list: blacklist.join(', ') })}`);
-          }
+          if (source === 'mc')
+            await bot.chat(`/me &8[&e🛈&8] &e${displayName}, &a${t('bot.cmd.blacklist.list', { list: list.join(', ') })}`);
+          else
+            await outputToDiscord(`${t('bot.cmd.blacklist.listdc', { list: list.join(', ') })}`);
         }
         break;
       }
 
-      if (!targetUser) {
-        if (source === 'mc') {
+      if (!target) {
+        if (source === 'mc')
           await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.blacklist.usage_sub', { prefix: config.botprefix, subcmd })}`);
-        } else {
+        else
           await outputToDiscord(`${t('bot.cmd.blacklist.usage_subdc', { prefix: config.botprefix, subcmd })}`);
-        }
         break;
       }
 
-      const target = targetUser.toLowerCase();
-      const role = getRole(target);
+      const targetUser = await resolveUserArg(target);
+      if (!targetUser) {
+        if (source === 'mc')
+          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+        else
+          await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+        return;
+      }
 
+      const role = await getRole(targetUser);
       if (!isConsole && (role === 'moder' || role === 'owner')) {
         const roleName = role === 'owner' ? 'владельца' : 'модера';
-        if (source === 'mc') {
+        if (source === 'mc')
           await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.cannot_manage', { role: roleName })}`);
-        } else {
+        else
           await outputToDiscord(`${t('bot.cmd.blacklist.cannot_manage', { role: roleName })}`);
-        }
         break;
       }
 
       if (subcmd === 'add') {
-        if (isBlacklisted(target)) {
-          if (source === 'mc') {
+        if (await isBlacklisted(targetUser)) {
+          if (source === 'mc')
             await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.already', { user: targetUser })}`);
-          } else {
+          else
             await outputToDiscord(`${t('bot.cmd.blacklist.alreadydc', { user: targetUser })}`);
-          }
         } else {
-          addToBlacklist(target);
+          await addToBlacklist(targetUser);
           await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.blacklist.added_mc', { by: displayName, user: targetUser })}`);
-          if (source === 'discord') {
+          if (source === 'discord')
             await outputToDiscord(`${t('bot.cmd.blacklist.added_dc', { user: targetUser })}`);
-          }
-          saveBlacklist();
         }
       }
 
       if (subcmd === 'remove') {
-        if (!isBlacklisted(target)) {
-          if (source === 'mc') {
+        if (!(await isBlacklisted(targetUser))) {
+          if (source === 'mc')
             await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.not_in', { user: targetUser })}`);
-          } else {
+          else
             await outputToDiscord(`${t('bot.cmd.blacklist.not_indc', { user: targetUser })}`);
-          }
         } else {
-          removeFromBlacklist(target);
+          await removeFromBlacklist(targetUser);
           await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.blacklist.removed_mc', { by: displayName, user: targetUser })}`);
-          if (source === 'discord') {
+          if (source === 'discord')
             await outputToDiscord(`${t('bot.cmd.blacklist.removed_dc', { user: targetUser })}`);
-          }
-          saveBlacklist();
         }
       }
 
@@ -1420,8 +1580,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     }
 
     case 'ban': {
-      const targetUser = parts[1];
-      const target = targetUser ? targetUser.toLowerCase() : null;
+      const target = parts[1];
       const timeStr = parts[2];
       const reason = parts.slice(3).join(' ') || 'Без причины';
 
@@ -1434,24 +1593,28 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         return;
       }
 
-      const role = getRole(target);
+      const targetUser = await resolveUserArg(target);
+      if (!targetUser) {
+        if (source === 'mc')
+          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+        else
+          await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+        return;
+      }
+
+      const role = await getRole(targetUser);
       if (!isConsole && (role === 'moder' || role === 'owner')) {
         const roleName = role === 'owner' ? 'владельца' : 'модера';
-        if (source === 'mc') {
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.ban.cannot_ban', { role: roleName })}`);
-        } else {
-          await outputToDiscord(`${t('bot.cmd.ban.cannot_ban', { role: roleName })}`);
-        }
+        await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.ban.cannot_ban', { role: roleName })}`);
         return;
       }
 
       const unit = timeStr.slice(-1);
       const value = parseInt(timeStr.slice(0, -1), 10);
-      const ms =
-        unit === 's' ? value * 1000 :
-          unit === 'm' ? value * 60 * 1000 :
-            unit === 'h' ? value * 60 * 60 * 1000 :
-              unit === 'd' ? value * 24 * 60 * 60 * 1000 : 0;
+      const ms = unit === 's' ? value * 1000 :
+        unit === 'm' ? value * 60 * 1000 :
+          unit === 'h' ? value * 60 * 60 * 1000 :
+            unit === 'd' ? value * 24 * 60 * 60 * 1000 : 0;
 
       if (!ms) {
         if (source === 'mc') {
@@ -1462,50 +1625,55 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         return;
       }
 
-      banUser(target, ms, reason);
+      await banUser(targetUser, ms, reason);
 
       await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.ban.success_mc', { by: displayName, user: targetUser, time: timeStr, reason })}`);
-
       if (source === 'discord') {
         await outputToDiscord(`${t('bot.cmd.ban.success_dc', { user: targetUser, time: timeStr, reason })}`);
       }
-
       break;
     }
 
     case 'unban': {
-      const targetUser = parts[1];
-      const target = targetUser ? targetUser.toLowerCase() : null;
-
+      const target = parts[1];
       if (!target) {
         if (source === 'mc')
           await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.unban.usage', { prefix: config.botprefix })}`);
         else
-          await outputToDiscord(`${t('bot.cmd.unban.usagedc', { prefix: config.botprefix })}\`\`\``);
+          await outputToDiscord(`${t('bot.cmd.unban.usagedc', { prefix: config.botprefix })}`);
         return;
       }
 
-      if (!bannedUsers[target]) {
+      const targetNick = await resolveUserArg(target);
+      if (!targetNick) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.unban.not_banned', { user: targetUser })}`);
+          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
         else
-          await outputToDiscord(`${t('bot.cmd.unban.not_banneddc', { user: targetUser })}\`\`\``);
+          await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
         return;
       }
 
-      unbanUser(target);
+      const banInfo = await isBanned(targetNick);
+      if (!banInfo) {
+        if (source === 'mc')
+          await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.unban.not_banned', { user: targetNick })}`);
+        else
+          await outputToDiscord(`${t('bot.cmd.unban.not_banneddc', { user: targetNick })}`);
+        return;
+      }
 
-      await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.unban.success_mc', { by: displayName, user: targetUser })}`);
+      await unbanUser(targetNick);
+
+      await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.unban.success_mc', { by: displayName, user: targetNick })}`);
       if (source === 'discord')
-        await outputToDiscord(`${t('bot.cmd.unban.success_dc', { user: targetUser })}\`\`\``);
+        await outputToDiscord(`${t('bot.cmd.unban.success_dc', { user: targetNick })}`);
 
       break;
     }
 
     case 'cmd': {
       const subcmd = parts[1]?.toLowerCase();
-      const targetUser = parts[2];
-      const target = targetUser ? targetUser.toLowerCase() : null;
+      const target = parts[2];
       const targetCommand = parts[3]?.toLowerCase().replace(config.botprefix, '');
 
       if (!['give', 'take'].includes(subcmd || '') || !target || !targetCommand) {
@@ -1517,19 +1685,27 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         return;
       }
 
+      const targetUser = await resolveUserArg(target);
+      if (!targetUser) {
+        if (source === 'mc') {
+          await bot.chat(`/me &8[&e🛈&8] &c${t('bot.usernotfound', { user: target })}`);
+        } else {
+          await outputToDiscord(t('bot.usernotfounddc', { user: target }));
+        }
+        return;
+      }
+
       if (subcmd === 'give') {
-        grantPermission(target, targetCommand);
+        await grantPermission(targetUser, targetCommand);
 
         await bot.chat(`/me &8[&#00ff00🛈&8] &a${t('bot.cmd.cmd.give_mc', { by: displayName, user: targetUser, command: targetCommand })}`);
-
         if (source === 'discord') {
           await outputToDiscord(`${t('bot.cmd.cmd.give_discord', { user: targetUser, command: targetCommand })}`);
         }
       } else {
-        revokePermission(target, targetCommand);
+        await revokePermission(targetUser, targetCommand);
 
         await bot.chat(`/me &8[&#00ff00🛈&8] &a${t('bot.cmd.cmd.take_mc', { by: displayName, user: targetUser, command: targetCommand })}`);
-
         if (source === 'discord') {
           await outputToDiscord(`${t('bot.cmd.cmd.take_discord', { user: targetUser, command: targetCommand })}`);
         }
@@ -1638,46 +1814,48 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     }
 
     case 'balance': {
-      const arg = parts[1]?.toLowerCase();
-      const username = realUsername.toLowerCase();
+      const arg = parts[1];
+      const username = realUsername;
 
-      if (arg === 'top') {
-        const entries = Object.entries(economy);
-        if (!entries.length) {
-          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.top_empty')}`);
-          break;
-        }
-        const topPlayers = entries
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([user, bal], i) => `&d${i + 1}. &a${user} &7- &6${bal}⛃`)
-          .join(' &8| ');
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.top_list', { list: topPlayers })}`);
+      if (arg?.toLowerCase() === 'top') {
+        db.all('SELECT nickname, balance FROM users ORDER BY balance DESC LIMIT 5', [], async (err, rows) => {
+          if (err || !rows.length) {
+            await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.top_empty')}`);
+            return;
+          }
+
+          const topPlayers = rows
+            .map((r, i) => `&d${i + 1}. &a${r.nickname} &7- &6${r.balance}⛃`)
+            .join(' &8| ');
+
+          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.top_list', { list: topPlayers })}`);
+        });
         break;
       }
 
       if (arg && arg !== username) {
-        const targetBalance = economy[arg];
-        if (targetBalance != null) {
-          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.target', { username: displayName, target: arg, balance: targetBalance })}`);
-        } else {
+        const targetUser = await resolveUserArg(arg);
+        if (!targetUser) {
           await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.not_found', { username: displayName })}`);
+          break;
         }
+
+        const targetBalance = await getBalance(targetUser);
+        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.target', { username: displayName, target: targetUser, balance: targetBalance })}`);
         break;
       }
 
-      const balance = economy[username] ?? 0;
+      const balance = await getBalance(username);
       await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.your', { username: displayName, balance })}`);
       break;
     }
 
     case 'eco': {
       const subcmd = parts[1]?.toLowerCase();
-      const targetUser = parts[2];
-      const target = targetUser ? targetUser.toLowerCase() : null;
+      const target = parts[2];
       const amount = parseInt(parts[3], 10);
 
-      if (!['give', 'take'].includes(subcmd || '') || !targetUser || isNaN(amount)) {
+      if (!['give', 'take'].includes(subcmd || '') || !target || isNaN(amount)) {
         if (source === 'mc') {
           await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.usage', { username: displayName, prefix: config.botprefix })}`);
         } else {
@@ -1686,45 +1864,65 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         return;
       }
 
-      if (subcmd === 'give') {
-        changeBalance(target, amount);
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.give_mc', { username: displayName, target: targetUser, amount })}`);
-        if (source === 'discord') await outputToDiscord(`${t('bot.cmd.eco.give_dc', { target: targetUser, amount })}`);
-      } else {
-        changeBalance(target, -amount);
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.take_mc', { username: displayName, target: targetUser, amount })}`);
-        if (source === 'discord') await outputToDiscord(`${t('bot.cmd.eco.take_dc', { target: targetUser, amount })}`);
+      const targetUser = await resolveUserArg(target);
+      if (!targetUser) {
+        if (source === 'mc')
+          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+        else
+          await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+        return;
       }
 
-      saveEconomy();
+      if (subcmd === 'give') {
+        await changeBalance(targetUser, amount);
+
+        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.give_mc', { username: displayName, target: targetUser, amount })}`);
+
+        if (source === 'discord')
+          await outputToDiscord(`${t('bot.cmd.eco.give_dc', { target: targetUser, amount })}`);
+      }
+
+      if (subcmd === 'take') {
+        await changeBalance(targetUser, -amount);
+
+        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.take_mc', { username: displayName, target: targetUser, amount })}`);
+
+        if (source === 'discord')
+          await outputToDiscord(`${t('bot.cmd.eco.take_dc', { target: targetUser, amount })}`);
+      }
+
       break;
     }
 
     case 'pay': {
-      const targetUser = parts[1];
-      const target = targetUser ? targetUser.toLowerCase() : null;
+      const target = parts[1];
       const amount = parseInt(parts[2], 10);
-      const sender = realUsername.toLowerCase();
+      const sender = realUsername;
 
       if (!target || isNaN(amount) || amount <= 0) {
         await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.pay.usage', { prefix: config.botprefix })}`);
         return;
       }
 
-      if (target === sender) {
+      const targetUser = await resolveUserArg(target);
+      if (!targetUser) {
+        await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.usernotfound', { user: target })}`);
+        return;
+      }
+
+      if (targetUser === sender) {
         await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.pay.self', { username: displayName })}`);
         return;
       }
 
-      const senderBalance = getBalance(sender);
+      const senderBalance = await getBalance(sender);
       if (senderBalance < amount) {
         await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.pay.no_money', { username: displayName, balance: senderBalance })}`);
         return;
       }
 
-      changeBalance(sender, -amount);
-      changeBalance(target, amount);
-      saveEconomy();
+      await changeBalance(sender, -amount);
+      await changeBalance(targetUser, amount);
 
       await bot.chat(`/me &8[&#00FF00⛃&8] ${t('bot.cmd.pay.success', { username: displayName, target: targetUser, amount })}`);
       break;
@@ -1776,7 +1974,6 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         }
 
         changeBalance(buyer, -item.price);
-        saveEconomy();
 
         if (oneTimeItems.includes(itemKey)) {
           purchases[buyer].push(itemKey);
@@ -1824,7 +2021,6 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (codeObj.action?.type === 'money') {
         const amount = codeObj.action.amount || 0;
         changeBalance(username, amount);
-        saveEconomy();
         await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.code.activated_money', { username: displayName, amount })}`);
       }
 
@@ -1977,12 +2173,12 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const value = args[1];
 
       if (hiddenParams.includes(param)) {
-        outputToDiscord(`${t('bot.cmd.config.cannot_change', { param })}\`\`\``);
+        outputToDiscord(`${t('bot.cmd.config.cannot_change', { param })}`);
         break;
       }
 
       if (!(param in config)) {
-        outputToDiscord(`${t('bot.cmd.config.unknown_param', { param })}\`\`\``);
+        outputToDiscord(`${t('bot.cmd.config.unknown_param', { param })}`);
         break;
       }
 
@@ -1991,20 +2187,20 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (param === 'lang') {
         const availableLangs = Object.keys(languages);
         if (!availableLangs.includes(value)) {
-          outputToDiscord(`${t('bot.cmd.config.invalid_value', { value })}. ${t('bot.cmd.config.availablelangs')} ${availableLangs.join(', ')}\`\`\``);
+          outputToDiscord(`${t('bot.cmd.config.invalid_value', { value })}. ${t('bot.cmd.config.availablelangs')} ${availableLangs.join(', ')}`);
           break;
         }
         newValue = value;
       } else if (typeof config[param] === "boolean") {
         if (!["true", "false"].includes(value.toLowerCase())) {
-          outputToDiscord(`${t('bot.cmd.config.boolean_usage', { param })}\`\`\``);
+          outputToDiscord(`${t('bot.cmd.config.boolean_usage', { param })}`);
           break;
         }
         newValue = value.toLowerCase() === "true";
       } else if (typeof config[param] === "number") {
         newValue = parseInt(value, 10);
         if (isNaN(newValue)) {
-          outputToDiscord(`${t('bot.cmd.config.invalid_value', { value })}\`\`\``);
+          outputToDiscord(`${t('bot.cmd.config.invalid_value', { value })}`);
           break;
         }
       } else {
@@ -2017,7 +2213,126 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const displayValue = (typeof newValue === "boolean") ? (newValue ? t('bot.yes') : t('bot.no')) : newValue;
       const prettyName = paramMeta[param] || param;
 
-      outputToDiscord(`${t('bot.cmd.config.updated', { param: prettyName, value: displayValue })}\`\`\``);
+      outputToDiscord(`${t('bot.cmd.config.updated', { param: prettyName, value: displayValue })}`);
+      break;
+    }
+
+    case 'role': {
+      const args = parts.slice(1);
+      const sub = args[0];
+      const roles = getRoles();
+
+      if (!sub) {
+        await outputToDiscord(t('bot.cmd.role.usage', { prefix: config.botprefix }));
+        break;
+      }
+
+      if (sub === 'add') {
+        const roleName = args[1];
+        const display = args.slice(2).join(' ');
+
+        if (!roleName || !display) {
+          await outputToDiscord(t('bot.cmd.role.usage_add', { prefix: config.botprefix }));
+          break;
+        }
+        if (roles[roleName]) {
+          await outputToDiscord(t('bot.cmd.role.exists', { role: roleName }));
+          break;
+        }
+
+        roles[roleName] = { display, cmds: [] };
+        saveRoles();
+        await outputToDiscord(t('bot.cmd.role.created', { role: roleName }));
+        break;
+      }
+
+      if (sub === 'remove') {
+        const roleName = args[1];
+        if (!roles[roleName]) {
+          await outputToDiscord(t('bot.cmd.role.notfound', { role: roleName }));
+          break;
+        }
+
+        delete roles[roleName];
+        saveRoles();
+        db.run('UPDATE users SET role = "user" WHERE role = ?', [roleName]);
+        await outputToDiscord(t('bot.cmd.role.removed', { role: roleName }));
+        break;
+      }
+
+      if (sub === 'set') {
+        const target = args[1];
+        const roleName = args[2];
+
+        if (!target || !roles[roleName]) {
+          await outputToDiscord(t('bot.cmd.role.usage_set', { prefix: config.botprefix }));
+          break;
+        }
+
+        const nickname = await resolveUserArg(target);
+        if (!nickname) {
+          await outputToDiscord(t('bot.usernotfounddc', { user: target }));
+          break;
+        }
+
+        db.run('UPDATE users SET role = ? WHERE nickname = ?', [roleName, nickname]);
+        await outputToDiscord(t('bot.cmd.role.assigned', { user: nickname, role: roleName }));
+        break;
+      }
+
+      if (sub === 'cmd') {
+        const action = args[1];
+        const roleName = args[2];
+        const command = args[3];
+
+        if (!['add', 'remove'].includes(action) || !roles[roleName] || !command) {
+          await outputToDiscord(t('bot.cmd.role.usage_cmd', { prefix: config.botprefix }));
+          break;
+        }
+
+        const cmds = roles[roleName].cmds || [];
+
+        if (action === 'add') {
+          if (!cmds.includes(command)) cmds.push(command);
+          saveRoles();
+          await outputToDiscord(t('bot.cmd.role.cmd_added', { command, role: roleName }));
+          break;
+        }
+
+        if (action === 'remove') {
+          roles[roleName].cmds = cmds.filter(c => c !== command);
+          saveRoles();
+          await outputToDiscord(t('bot.cmd.role.cmd_removed', { command, role: roleName }));
+          break;
+        }
+      }
+
+      await outputToDiscord(t('bot.cmd.role.unknown_sub'));
+      break;
+    }
+
+    case 'database': {
+      db.all('SELECT id, nickname, role, balance FROM users', [], async (err, rows) => {
+        if (err) {
+          outputToDiscord(`${t('db.readerror')}`);
+          return;
+        }
+
+        cachedDatabaseRows = rows;
+
+        const page = 0;
+        const pageSize = 10;
+        const totalPages = Math.ceil(rows.length / pageSize);
+
+        const embed = buildDatabaseEmbed(rows, page, pageSize);
+        const buttons = buildButtons(page, totalPages);
+
+        await discordOutput.send({
+          embeds: [embed],
+          components: [buttons]
+        });
+      });
+
       break;
     }
 
@@ -2126,11 +2441,12 @@ bot.on('message', async (jsonMsg) => {
       const data = pendingRealnames.get(displayNick);
 
       for (const log of data.logs) {
-        await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+        await logToDiscordChatLog(`${log.timestamp} 💬 **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
       }
 
       for (const cmd of data.commands) {
         try {
+          if (cmd.startsWith(config.botprefix)) await ensureUser(realNick)
           await processUserCommand(realNick.toLowerCase(), cmd);
         } catch (err) {
           console.error(
@@ -2161,7 +2477,7 @@ bot.on('message', async (jsonMsg) => {
         nickMap.set(displayNick, "Unknown Player");
 
         for (const log of data.logs) {
-          await logToDiscordChatLog(`${log.timestamp} :speech_balloon: **\`Unknown Player (${displayNick})\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+          await logToDiscordChatLog(`${log.timestamp} 💬 **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
         }
 
         pendingRealnames.delete(displayNick);
@@ -2176,6 +2492,19 @@ bot.on('message', async (jsonMsg) => {
     const left = parsed.slice(0, arrowIndex).trim();
     usernameRaw = left.split(/\s+/).pop();
     msgText = parsed.slice(arrowIndex + arrowSymbol.length).trim();
+
+    if (usernameRaw.startsWith('~')) {
+      const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
+      if (realnameMatch) {
+        usernameRaw = realnameMatch[2];
+        nickMap.set(`~${realnameMatch[1]}`.toLowerCase(), usernameRaw);
+      }
+    }
+
+    if (!usernameRaw.startsWith('~') && msgText.startsWith(config.botprefix)) {
+      await ensureUser(usernameRaw);
+    }
+
   } else {
     usernameRaw = parsed.split(/\s+/)[0];
     msgText = parsed;
