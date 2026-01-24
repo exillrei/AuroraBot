@@ -1,0 +1,23 @@
+owner:
+  display: '&7[&cВладелец&7]'
+  cmds:
+    - msg
+    - run
+    - exit
+    - blacklist
+    - ban
+    - unban
+    - cmd
+    - eco
+    - restart
+    - bcode
+moder:
+  display: '&7[&9Модератор&7]'
+  cmds:
+    - run
+    - ban
+    - unban
+    - blacklist
+user:
+  display: '&7[&eИгрок&7]'
+  cmds: []
