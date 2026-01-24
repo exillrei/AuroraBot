@@ -673,14 +673,7 @@ function saveRoles() {
 loadRoles();
 
 function getRoles() {
-  try {
-    const file = fs.readFileSync('./settings/roles.yml', 'utf8');
-    const data = yaml.load(file);
-    return data || {};
-  } catch (err) {
-    console.error(err);
-    return {};
-  }
+  return roles;
 }
 
 
@@ -920,7 +913,7 @@ function startChatGame() {
       chalk.hex('#ff7c7c')(`${t('bot.chatgame_readerror')} ${err}`)
     );
   }
-} 
+}
 
 setInterval(() => {
   if (!awaitingAnswer && bot.player) {
