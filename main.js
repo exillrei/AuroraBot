@@ -2439,7 +2439,7 @@ bot.on('message', async (jsonMsg) => {
 
       for (const cmd of data.commands) {
         try {
-          if (cmd.startsWith(config.botprefix)) await ensureUser(realNick)
+          await ensureUser(realNick)
           await processUserCommand(realNick.toLowerCase(), cmd);
         } catch (err) {
           console.error(
