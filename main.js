@@ -1330,9 +1330,9 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       const commandDescriptions = t('bot.cmd.descriptions') || {};
 
-      if (source === 'discord') {
-        const detailedList = allCommands
-          .map(cmd => `${config.botprefix}${cmd} » ${commandDescriptions[cmd] || '???'}`)
+      if (source === 'discord') { 
+        const detailedList = Object.entries(commandDescriptions)
+          .map(([cmd, desc]) => `${config.botprefix}${cmd} » ${desc}`)
           .join('\n');
 
         await outputToDiscord(detailedList);
