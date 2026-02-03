@@ -649,6 +649,8 @@ function logChatEntry(entry) {
 }
 
 function limitCharsByWords(text, maxChars = 240) {
+  if (!text || typeof text !== 'string') return '';
+
   if (text.length <= maxChars) return text;
 
   let truncated = text.slice(0, maxChars);
@@ -687,13 +689,13 @@ async function queryAI(prompt) {
       const errorMsg = `${response.status} ${response.statusText}`;
       bot.chat(`/me ${t('bot.ai_unavailable')} &8(&6${errorMsg}&8)`);
       console.error('[AI]', errorMsg);
+      return null;
     }
 
     const data = await response.json();
     let text = data.choices?.[0]?.message?.content?.trim();
-    text = limitCharsByWords(text, 240);
 
-    return text;
+    return text || null;
 
   } catch (err) {
     const errorText = (err.message || String(err)).slice(0, 80);
@@ -996,9 +998,9 @@ function giveGameReward(username) {
 
 async function processAI(realNick, msgText, source = 'mc') {
 
-  if (checkBan(realNick)) return;
+  if (await checkBan(realNick)) return;
 
-  if (isBlacklisted(realNick)) {
+  if (await isBlacklisted(realNick)) {
     await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, ${t('bot.blacklisted')}`);
     return;
   }
@@ -1018,6 +1020,7 @@ async function processAI(realNick, msgText, source = 'mc') {
 
   await bot.chat(`/m ${realNick} ${t('bot.ai_think')}`);
   const reply = await queryAI(prompt);
+  if (!reply) return;
   await sendLongMessage(realNick, reply);
 }
 
