@@ -1197,7 +1197,7 @@ async function checkBan(username) {
   if (banInfo) {
     const msLeft = banInfo.unbanAt - Date.now();
     const timeLeft = formatDuration(msLeft);
-    bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.bot_blocked', { username: originalCasedUsername, timeLeft: timeLeft, reason: banInfo.reason })}`);
+    bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.bot_blocked', { username, timeLeft: timeLeft, reason: banInfo.reason })}`);
     return true;
   }
   return false;
