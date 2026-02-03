@@ -222,6 +222,8 @@ discordClient.once('ready', async () => {
     chalk.hex('#FF7C7C')(t('discord.logchannel_notfound'))
   );
 
+  await checkUpdate();
+
   bot.once('spawn', async () => {
     const startType = process.env.pm_id !== undefined ? 'PM2' : 'Обычный';
     const ip = bot._client?.socket?.remoteAddress || bot.options?.host || 'Не указан';
@@ -468,6 +470,51 @@ async function logToDiscordChatLog(message) {
       chalk.bold.hex('#7CB6FF')('[Discord ChatLog]') + ' ' +
       chalk.hex('#FF7C7C')(`${t('discord.log_error')}: ${err}`)
     );
+  }
+}
+
+const pkgjson = JSON.parse(
+  fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')
+);
+
+const currentVersion = pkgjson.version;
+
+async function checkUpdate() {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/exillrei/AuroraBot/releases/latest`,
+      { headers: { 'User-Agent': 'AuroraBot Update Checker' } }
+    );
+
+    if (!res.ok) return;
+
+    const data = await res.json();
+    const latestVersion = data.tag_name;
+
+    if (latestVersion !== currentVersion) {
+      console.log(
+        chalk.bold.hex('#2267fb')('[UPDATE]') + ' ' +
+        chalk.hex('#cdddff')(`${t('update.available')} ${latestVersion}`) + ' ' +
+        chalk.hex('#3870a8')(`(${t('update.yourversion')} ${currentVersion})`)
+      );
+      await discordOutput.send({
+        embeds: [sendEmbed(
+          `✨ ${t('update.newupdate')}`,
+          '',
+          {
+            color: 0x2267fb,
+            footer: 'UPDATE',
+            fields: [
+              { name: `${t('update.available')}`, value: `\`${latestVersion}\``, inline: true },
+              { name: `${t('update.yourversion')}`, value: `\`${currentVersion}\``, inline: true }
+            ],
+            timestamp: true
+          }
+        )]
+      });
+    }
+  } catch (err) {
+    console.error(chalk.bold.hex('#2267fb')('[UPDATE]', err));
   }
 }
 
@@ -1090,7 +1137,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
       await logToDiscordChatLog(`${timestamp}\n\`\`\`\n${parsed}\n\`\`\``);
     }
 
-    await processUserCommand(usernameRaw, msgText);
+    if (source === 'mc') await processUserCommand(usernameRaw, msgText);
   } catch (err) {
     console.error(chalk.hex('#FF7C7C')(`${t('bot.error_prefix')}: ${err}`));
   }
@@ -1347,21 +1394,94 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     }
 
     case 'info': {
-      const uptime = Date.now() - startTime;
-      const formatted = formatUptime(uptime);
-      const ip = bot._client?.socket?.remoteAddress || bot.options?.host || 'Не указан';
-      const port = bot._client?.socket?.remotePort || bot.options?.port || 'Не указан';
-      const ipPort = `${ip}:${port}`;
-      const discordPing = discordClient.ws.ping;
-      const mcPing = bot.player?.ping ?? '-';
-      if (source === 'mc') {
-        const roleName = await getRole(displayName);
-        const roleData = roles[roleName];
-        const roleDisplay = roleData?.display || "&7???";
-        await bot.chat(`/me &8[&e✦&8] ${t('bot.cmd.info', { displayName: displayName, prefix: config.botprefix, uptime: formatted, role: roleDisplay })}`);
-      } else {
-        await discordOutput.send({ embeds: [sendEmbed(`ℹ️ ${t('bot.cmd.info_dc.info')}`, ``, { color: 0x5499f4, footer: 'INFO', fields: [{ name: `${t('bot.cmd.info_dc.creator')}`, value: `**exillrei**`, inline: true }, { name: `${t('bot.cmd.info_dc.help')}`, value: `**${config.botprefix}help**`, inline: true }, { name: `${t('bot.cmd.info_dc.uptime')}`, value: `**${formatted}**`, inline: true }, { name: `${t('bot.cmd.info_dc.connection')}`, value: `**${ipPort}**`, inline: true }, { name: `${t('bot.cmd.info_dc.online')}`, value: `**${Object.keys(bot.players).length}**`, inline: true }, { name: `${t('bot.cmd.info_dc.ping')}`, value: `**${mcPing}/${discordPing}**`, inline: true }], timestamp: true })] });
+      const target = parts[1];
+
+      if (!target) {
+        const uptime = Date.now() - startTime;
+        const formatted = formatUptime(uptime);
+        const ip = bot._client?.socket?.remoteAddress || bot.options?.host || 'Не указан';
+        const port = bot._client?.socket?.remotePort || bot.options?.port || 'Не указан';
+        const ipPort = `${ip}:${port}`;
+        const discordPing = discordClient.ws.ping;
+        const mcPing = bot.player?.ping ?? '-';
+
+        if (source === 'mc') {
+          const roleName = await getRole(displayName);
+          const roleData = roles[roleName];
+          const roleDisplay = roleData?.display || '&7???';
+
+          await bot.chat(`/me &8[&e✦&8] ${t('bot.cmd.info', { displayName, prefix: config.botprefix, uptime: formatted, role: roleDisplay })}`);
+        } else {
+          await discordOutput.send({
+            embeds: [
+              sendEmbed(
+                `<:info:1463199719449821184> ${t('bot.cmd.info_dc.info')}`, '',
+                {
+                  color: 0x5499f4,
+                  footer: 'INFO',
+                  fields: [
+                    { name: t('bot.cmd.info_dc.creator'), value: '**exillrei**', inline: true },
+                    { name: t('bot.cmd.info_dc.help'), value: `**${config.botprefix}help**`, inline: true },
+                    { name: t('bot.cmd.info_dc.uptime'), value: `**${formatted}**`, inline: true },
+                    { name: t('bot.cmd.info_dc.connection'), value: `**${ipPort}**`, inline: true },
+                    { name: t('bot.cmd.info_dc.online'), value: `**${Object.keys(bot.players).length}**`, inline: true },
+                    { name: t('bot.cmd.info_dc.ping'), value: `**${mcPing}/${discordPing}**`, inline: true }
+                  ],
+                  timestamp: true
+                }
+              )
+            ]
+          });
+        }
+        break;
       }
+
+      let targetUser = null;
+      if (target.startsWith(':') && /^\d+$/.test(target.slice(1))) {
+        const id = Number(target.slice(1));
+        targetUser = await new Promise((resolve, reject) => {
+          db.get('SELECT id, nickname, role, balance FROM users WHERE id = ?', [id], (err, row) => err ? reject(err) : resolve(row));
+        });
+      } else {
+        targetUser = await new Promise((resolve, reject) => {
+          db.get('SELECT id, nickname, role, balance FROM users WHERE nickname = ?', [target], (err, row) => err ? reject(err) : resolve(row));
+        });
+      }
+
+      if (!targetUser) {
+        if (source === 'mc')
+          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+        else
+          await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+        break;
+      }
+
+      const roleData = roles[targetUser.role];
+      const roleDisplay = roleData?.display || '???';
+
+      if (source === 'mc') {
+        await bot.chat(`/me &8[&e✦&8] &f${roleDisplay} &f${targetUser.nickname} &8| &eID: &6${targetUser.id} &8| &2${t('db.balance')}: &a${targetUser.balance}`);
+      } else {
+        await discordOutput.send({
+          embeds: [
+            sendEmbed(
+              `ℹ️ ${targetUser.nickname}`,
+              null,
+              {
+                color: 0x5499f4,
+                footer: 'INFO',
+                fields: [
+                  { name: '🆔 ID', value: `\`${targetUser.id}\``, inline: true },
+                  { name: `🏷 ${t('db.role')}`, value: `\`${targetUser.role}\``, inline: true },
+                  { name: `💰 ${t('db.balance')}`, value: `\`${targetUser.balance}\``, inline: true }
+                ],
+                timestamp: true
+              }
+            )
+          ]
+        });
+      }
+
       break;
     }
 
@@ -2498,12 +2618,13 @@ bot.on('message', async (jsonMsg) => {
       await ensureUser(usernameRaw);
     }
 
+    await handleChat(usernameRaw, msgText, parsed, jsonMsg, 'mc');
+
   } else {
     usernameRaw = parsed.split(/\s+/)[0];
     msgText = parsed;
+    await handleChat(usernameRaw, msgText, parsed, jsonMsg, 'other');
   }
-
-  await handleChat(usernameRaw, msgText, parsed, jsonMsg);
 });
 
 bot.once('windowOpen', (window) => {

@@ -2,6 +2,12 @@
 errors:
   ai_api_key_missing: "❌ Error: AI_API_KEY variable is not set in .env"
 
+# Update Checker
+update:
+  available: "A new version is available:"
+  yourversion: "Your Version:"
+  newupdate: "New Update"
+
 # Discord
 discord:
   bot_logged_in: "Bot has logged in as {tag}"

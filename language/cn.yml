@@ -2,6 +2,12 @@
 errors:
   ai_api_key_missing: "❌ 错误：未在 .env 中设置 AI_API_KEY 变量"
 
+# 检查更新
+update:
+  available: "有新版本可用:"
+  yourversion: "你的版本:"
+  newupdate: "新更新"
+
 # Discord
 discord:
   bot_logged_in: "机器人已以 {tag} 登录"

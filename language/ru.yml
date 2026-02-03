@@ -2,6 +2,12 @@
 errors:
   ai_api_key_missing: "❌ Ошибка: переменная AI_API_KEY не задана в .env"
 
+# Проверка обновлений
+update:
+  available: "Доступна новая версия:"
+  yourversion: "Ваша версия:"
+  newupdate: "Новое обновление"
+
 # Discord
 discord:
   bot_logged_in: "Бот авторизовался как {tag}"
