@@ -2881,7 +2881,7 @@ bot.on('message', async (jsonMsg) => {
     }
   }
 
-  const coinConvertRegex = /\$([\d]{1,3}(?:,\d{3})*) получено от игрока (~?\w+)/;
+  const coinConvertRegex = /\$([\d]{1,3}(?:,\d{3})*) получено от игрока (.+?)\./;
   const moneymatch = parsed.match(coinConvertRegex);
 
   if (moneymatch) {
