@@ -12,6 +12,7 @@ What features are in the bot?:
  **4.** Chat-Game  
  **5.** Bot management via Discord  
  **6.** Localization. Available languages: ru, en, cn  
+ **7.** Casino system  
 
 ## 🛠️ Installation
 
@@ -27,7 +28,8 @@ What features are in the bot?:
 Starting the bot:  
 ```node bot```  
 
-Bot prefix: **$** Bot commands:  
+Bot prefix: **$**  
+Bot commands:  
 help - Shows the list of available commands  
 msg - Sends a message in chat as the bot  
 run - Executes a server command as the bot  
@@ -49,6 +51,8 @@ feedback - Bot reviews
 pay - Send your coins to a player  
 code - Codes  
 bcode - Code notification  
+casino - Casino system
+bj - BlackJack  
 
 > [!NOTE]
 > The restart command requires **PM2** > **PM2** installation:  

@@ -161,6 +161,9 @@ let fullySpawned = false;
 let activeSpammer = null;
 let spammerInterval = null;
 
+const withdrawRequests = new Map();
+const activeBlackjackGames = new Map();
+
 if (!process.env.AI_API_KEY) {
   console.error(chalk.hex('#FF0000')(t('errors.ai_api_key_missing')));
   process.exit(1);
@@ -266,17 +269,17 @@ discordClient.on('messageCreate', async (msg) => {
     const guildMember = await msg.guild.members.fetch(msg.author.id);
     const roles = new Set(guildMember.roles.cache.map(role => role.id));
 
-    if (msg.author.id && !roles.has('1397205134957609030')) {
-      await discordOutput.send({ embeds: [sendEmbed(`⛔ ${t('discord.accessdenied')}`, ``, { color: 0x5499f4, footer: 'DENIED', fields: [{ name: `${t('discord.noaccess')}`, value: `\`\`\`${content}\`\`\``, inline: true }], timestamp: true })] });
+    if (msg.author.id && !roles.has('Your Role ID')) {
+      await discordOutput.send({ embeds: [sendEmbed(`<:accessdenied:1463611412143149280> ${t('discord.accessdenied')}`, ``, { color: 0x5499f4, footer: 'DENIED', fields: [{ name: `${t('discord.noaccess')}`, value: `\`\`\`${content}\`\`\``, inline: true }], timestamp: true })] });
       return;
     }
 
-    await processUserCommand('CONSOLE', content, 'discord', msg.member.displayName);
+    await processUserCommand('SYSTEM', content, 'discord', msg.member.displayName);
 
   } catch (err) {
     console.error(
       chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
-      chalk.hex('#FF7C7C')(`${t('discord.command_processing_error')}: ${err}`)
+      chalk.hex('#FF7C7C')(`${t('discord.command_processing_error')}: ${err.stack}`)
     );
     await msg.reply(`${t('discord.msg_command_processing_error')}`);
   }
@@ -518,10 +521,19 @@ async function checkUpdate() {
   }
 }
 
+async function userExists(username) {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT 1 FROM users WHERE nickname = ?', [username], (err, row) => {
+      if (err) return reject(err);
+      resolve(!!row);
+    });
+  });
+}
+
 async function resolveUserArg(arg) {
   if (!arg) return null;
 
-  const idMatch = /^:(\d+)$/.exec(arg);
+  const idMatch = /^:(-?\d+)$/.exec(arg);
   if (idMatch) {
     const id = parseInt(idMatch[1], 10);
     const row = await new Promise((res, rej) =>
@@ -649,8 +661,6 @@ function logChatEntry(entry) {
 }
 
 function limitCharsByWords(text, maxChars = 240) {
-  if (!text || typeof text !== 'string') return '';
-
   if (text.length <= maxChars) return text;
 
   let truncated = text.slice(0, maxChars);
@@ -689,13 +699,12 @@ async function queryAI(prompt) {
       const errorMsg = `${response.status} ${response.statusText}`;
       bot.chat(`/me ${t('bot.ai_unavailable')} &8(&6${errorMsg}&8)`);
       console.error('[AI]', errorMsg);
-      return null;
     }
 
     const data = await response.json();
     let text = data.choices?.[0]?.message?.content?.trim();
 
-    return text || null;
+    return text;
 
   } catch (err) {
     const errorText = (err.message || String(err)).slice(0, 80);
@@ -721,13 +730,16 @@ function saveRoles() {
 
 loadRoles();
 
+fs.watchFile('./settings/roles.yml', () => {
+  loadRoles();
+});
+
 function getRoles() {
   return roles;
 }
 
-
 async function isBlacklisted(username) {
-  if (username === 'CONSOLE') return false;
+  if (username === 'SYSTEM') return false;
   return new Promise((resolve, reject) => {
     db.get(
       'SELECT 1 FROM blacklist WHERE nickname = ?',
@@ -811,8 +823,9 @@ function getRole(nickname) {
 
 async function getNextId() {
   return new Promise((resolve, reject) => {
-    db.all('SELECT id FROM users ORDER BY id', [], (err, rows) => {
+    db.all('SELECT id FROM users WHERE id > 0 ORDER BY id', [], (err, rows) => {
       if (err) return reject(err);
+
       let nextId = 1;
       for (const r of rows) {
         if (r.id === nextId) nextId++;
@@ -824,7 +837,7 @@ async function getNextId() {
 }
 
 async function ensureUser(nickname) {
-  if (nickname === 'CONSOLE') return;
+  if (nickname === 'SYSTEM' && nickname === 'Unknown Player') return;
   const nextId = await getNextId();
 
   return new Promise((resolve, reject) => {
@@ -839,7 +852,7 @@ async function ensureUser(nickname) {
 async function hasPermission(username, cmd) {
   if (!username || !cmd) return false;
 
-  if (username === 'CONSOLE') return true;
+  if (username === 'SYSTEM') return true;
 
   const role = await getRole(username);
   const roleData = roles[role];
@@ -883,7 +896,7 @@ function formatUptime(ms) {
 async function grantPermission(nickname, command) {
   if (!nickname || !command) return;
 
-  nickname = nickname.toLowerCase();
+  nickname = nickname
   command = command.toLowerCase();
 
   db.run(
@@ -900,7 +913,7 @@ async function grantPermission(nickname, command) {
 async function revokePermission(nickname, command) {
   if (!nickname || !command) return;
 
-  nickname = nickname.toLowerCase();
+  nickname = nickname
   command = command.toLowerCase();
 
   db.run(
@@ -962,7 +975,7 @@ function startChatGame() {
       chalk.hex('#ff7c7c')(`${t('bot.chatgame_readerror')} ${err}`)
     );
   }
-}
+} 
 
 setInterval(() => {
   if (!awaitingAnswer && bot.player) {
@@ -1001,13 +1014,13 @@ async function processAI(realNick, msgText, source = 'mc') {
   if (await checkBan(realNick)) return;
 
   if (await isBlacklisted(realNick)) {
-    await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, ${t('bot.blacklisted')}`);
+    await bot.chat(`/m ${realNick} ${t('bot.blacklisted')}`);
     return;
   }
 
   const now = Date.now();
   if (now - lastBotCall < botCooldown) {
-    await bot.chat(`/me &8[&#FF0000✘&8] &c${realNick}, ${t('bot.ai_cooldown')}`);
+    await bot.chat(`/m ${realNick} &c${t('bot.ai_cooldown')}`);
     return;
   }
   lastBotCall = now;
@@ -1020,11 +1033,10 @@ async function processAI(realNick, msgText, source = 'mc') {
 
   await bot.chat(`/m ${realNick} ${t('bot.ai_think')}`);
   const reply = await queryAI(prompt);
-  if (!reply) return;
   await sendLongMessage(realNick, reply);
 }
 
-async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
+async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
   try {
     const username = cleanName(usernameRaw);
     const timestamp = getFormattedTimestamp();
@@ -1034,7 +1046,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
     if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed) && msgText.toLowerCase().includes('бот,')) {
 
       if (usernameRaw.startsWith('~')) {
-        const displayNick = usernameRaw.toLowerCase();
+        const displayNick = usernameRaw
 
         if (!pendingRealnames.has(displayNick))
           pendingRealnames.set(displayNick, { logs: [], commands: [], answers: [], aimsg: [] });
@@ -1045,7 +1057,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
         return;
       }
 
-      await processAI(usernameRaw, msgText);
+      if (source === 'mc') await processAI(usernameRaw, msgText);
       return;
     }
 
@@ -1058,7 +1070,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
       let usernameRaw = leftPart.split(/\s+/).pop();
 
       if (usernameRaw.startsWith('~')) {
-        const displayNick = usernameRaw.toLowerCase();
+        const displayNick = usernameRaw
         if (nickMap.has(displayNick)) {
           usernameRaw = nickMap.get(displayNick);
         } else {
@@ -1111,7 +1123,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
         let usernameRaw = leftPart.split(/\s+/).pop();
         if (arrowIndex !== -1) {
           if (usernameRaw.startsWith('~')) {
-            const displayNick = usernameRaw.toLowerCase();
+            const displayNick = usernameRaw
             if (nickMap.has(displayNick)) {
               usernameRaw = nickMap.get(displayNick);
             } else {
@@ -1125,7 +1137,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
           }
 
           try {
-            await processUserCommand(usernameRaw, msgText);
+            await processUserCommand(usernameRaw, msgText, 'mc', null, parsed);
           } catch (err) {
             console.error(
               chalk.bold.hex('#FF0000')(t('bot.error_prefix')) + ' ' +
@@ -1133,14 +1145,15 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg) {
             );
           }
         }
-        await logToDiscordChatLog(`${timestamp} 💬 **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
+        await logToDiscordChatLog(`${timestamp} <:chat:1462889419294900299> **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
         return;
       }
 
       await logToDiscordChatLog(`${timestamp}\n\`\`\`\n${parsed}\n\`\`\``);
     }
 
-    if (source === 'mc') await processUserCommand(usernameRaw, msgText);
+    if (source === 'mc') await processUserCommand(usernameRaw, msgText, 'mc', null, parsed);
+
   } catch (err) {
     console.error(chalk.hex('#FF7C7C')(`${t('bot.error_prefix')}: ${err}`));
   }
@@ -1178,7 +1191,7 @@ async function unbanUser(username) {
 }
 
 async function isBanned(username) {
-  if (username === 'CONSOLE') return false;
+  if (username === 'SYSTEM') return false;
   return new Promise((resolve, reject) => {
     db.get('SELECT unbanAt, reason FROM bans WHERE nickname = ?', [username], async (err, row) => {
       if (err) return reject(err);
@@ -1195,12 +1208,12 @@ async function isBanned(username) {
 }
 
 async function checkBan(username) {
-  if (username === 'CONSOLE') return false;
+  if (username === 'SYSTEM') return false;
   const banInfo = await isBanned(username);
   if (banInfo) {
     const msLeft = banInfo.unbanAt - Date.now();
     const timeLeft = formatDuration(msLeft);
-    bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.bot_blocked', { username, timeLeft: timeLeft, reason: banInfo.reason })}`);
+    bot.chat(`/me ${username} ${t('bot.bot_blocked', { timeLeft: timeLeft, reason: banInfo.reason })}`);
     return true;
   }
   return false;
@@ -1227,7 +1240,7 @@ async function getBalance(username) {
       if (err) return reject(err);
 
       if (!row) {
-        db.run('INSERT INTO users (nickname, role, balance) VALUES (?, ?, ?)', [username, 'user', 0], (err2) => {
+        db.run('INSERT OR IGNORE INTO users (nickname, role, balance) VALUES (?, ?, ?)', [username, 'user', 0], (err2) => {
           if (err2) return reject(err2);
           resolve(0);
         });
@@ -1250,6 +1263,38 @@ async function changeBalance(username, amount) {
         resolve(newBalance);
       }
     );
+  });
+}
+
+async function setBalance(username, amount) {
+  const newBalance = Math.max(0, amount);
+
+  return new Promise((resolve, reject) => {
+    db.run(
+      'UPDATE users SET balance = ? WHERE nickname = ?',
+      [newBalance, username],
+      (err) => {
+        if (err) return reject(err);
+        resolve(newBalance);
+      }
+    );
+  });
+}
+
+function getBotBalance() {
+  return new Promise((resolve) => {
+    const listener = async (jsonMsg) => {
+      const parsed = parseFormattedMessage(jsonMsg?.json || jsonMsg) + '';
+      if (parsed.includes('Ваш баланс:')) {
+        const match = parsed.match(/\$([\d]{1,3}(?:,\d{3})*|\d+)/);
+        if (match) {
+          bot.removeListener('message', listener);
+          resolve(parseInt(match[1].replace(/,/g, ''), 10));
+        }
+      }
+    };
+    bot.on('message', listener);
+    bot.chat('/bal');
   });
 }
 
@@ -1323,18 +1368,20 @@ fs.watchFile(CODES_FILE, () => {
   loadCodes();
 });
 
-async function processUserCommand(realUsername, message, source = 'mc', originalSender = null) {
-  const isConsole = realUsername === 'CONSOLE';
-  const originalCasedUsername = isConsole ? 'CONSOLE' : resolveUsername(realUsername);
+async function processUserCommand(realUsername, message, source = 'mc', originalSender = null, parsed) {
+  const isConsole = realUsername === 'SYSTEM';
+  const originalCasedUsername = isConsole ? 'SYSTEM' : resolveUsername(realUsername);
   const displayName = source === 'discord' && originalSender ? originalSender : originalCasedUsername;
+
+  if (realUsername === 'Unknown Player') return;
 
   const bannedRunCommands = [
     '/sphere', '/cyl', '/hcyl', '/walls', '/set', '/faces', '/overlay',
     '/hsphere', '/pyramid', '/hpyramid', '/outline', '/replacenear', '/replace',
     '/removenear', '/frb', '/snow', 'hub'
   ];
-  const discordBlockedCommands = ['pay', 'balance', 'feedback', 'code', 'bcode', 'shop'];
-  const alwaysAllowed = ['help', 'info', 'feedback', 'balance', 'pay', 'shop', 'code'];
+  const discordBlockedCommands = ['pay', 'balance', 'feedback', 'code', 'bcode', 'shop', 'casino', 'bj'];
+  const alwaysAllowed = ['help', 'info', 'feedback', 'balance', 'pay', 'shop', 'code', 'casino', 'bj'];
 
   const trimmed = (message || '').trim();
   if (!trimmed.startsWith(config.botprefix)) return;
@@ -1350,20 +1397,23 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   if (await checkBan(realUsername)) return;
 
   if (await isBlacklisted(realUsername)) {
-    await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.blacklisted')}`);
+    await bot.chat(`/m ${displayName} &c${t('bot.blacklisted')}`);
     return;
   }
 
   if (!alwaysAllowed.includes(cmd) && !isConsole) {
     if (!(await hasPermission(displayName, cmd))) {
-      await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.noperm')} &e${config.botprefix}${cmd}!`);
+      await bot.chat(`/m ${displayName} ${t('bot.cmd.noperm')} &e${config.botprefix}${cmd}!`);
       return;
     }
   }
 
   if (config.testmode && source == 'mc') {
-    await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.testmode')}`);
-    return;
+    const role = await getRole(displayName);
+    if (role !== 'owner') {
+      await bot.chat(`/m ${displayName} ${t('bot.testmode')}`);
+      return;
+    }
   }
 
   switch (cmd) {
@@ -1380,7 +1430,8 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       const commandDescriptions = t('bot.cmd.descriptions') || {};
 
-      if (source === 'discord') { 
+      if (source === 'discord') {
+
         const detailedList = Object.entries(commandDescriptions)
           .map(([cmd, desc]) => `${config.botprefix}${cmd} » ${desc}`)
           .join('\n');
@@ -1389,7 +1440,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       } else {
         const withPrefix = allCommands.map(c => config.botprefix + c);
         await bot.chat(
-          `/me &8[&e🛈&8] &e${displayName}, ${t('bot.cmd.availablecmds')} &e${withPrefix.join(', ')}`
+          `/m ${displayName} ${t('bot.cmd.availablecmds')} &e${withPrefix.join(', ')}`
         );
       }
 
@@ -1413,12 +1464,12 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           const roleData = roles[roleName];
           const roleDisplay = roleData?.display || '&7???';
 
-          await bot.chat(`/me &8[&e✦&8] ${t('bot.cmd.info', { displayName, prefix: config.botprefix, uptime: formatted, role: roleDisplay })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.info', { displayName, prefix: config.botprefix, uptime: formatted, role: roleDisplay })}`);
         } else {
           await discordOutput.send({
             embeds: [
               sendEmbed(
-                `<:info:1463199719449821184> ${t('bot.cmd.info_dc.info')}`, '',
+                `ℹ️ ${t('bot.cmd.info_dc.info')}`, '',
                 {
                   color: 0x5499f4,
                   footer: 'INFO',
@@ -1453,7 +1504,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (!targetUser) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
         else
           await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
         break;
@@ -1463,7 +1514,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const roleDisplay = roleData?.display || '???';
 
       if (source === 'mc') {
-        await bot.chat(`/me &8[&e✦&8] &f${roleDisplay} &f${targetUser.nickname} &8| &eID: &6${targetUser.id} &8| &2${t('db.balance')}: &a${targetUser.balance}`);
+        await bot.chat(`/m ${displayName} &f${roleDisplay} &f${targetUser.nickname} &8| &eID: &6${targetUser.id} &8| &2${t('db.balance')}: &6${targetUser.balance.toLocaleString('de-DE')}⛃`);
       } else {
         await discordOutput.send({
           embeds: [
@@ -1494,7 +1545,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (msgText.includes(config.botprefix)) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.msg.nocmds', { prefix: config.botprefix })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.msg.nocmds', { prefix: config.botprefix })}`);
         } else {
           await outputToDiscord(`${t('bot.cmd.msg.nocmds', { prefix: config.botprefix })}`);
         }
@@ -1519,7 +1570,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (cmdToRun.includes(config.botprefix)) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.run.nocmds', { prefix: config.botprefix })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.run.nocmds', { prefix: config.botprefix })}`);
         } else {
           await outputToDiscord(`${t('bot.cmd.run.nocmds', { prefix: config.botprefix })}`);
         }
@@ -1528,7 +1579,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (bannedRunCommands.some(b => cmdLower.startsWith(b))) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.run.blockedcmd')}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.run.blockedcmd')}`);
         } else {
           await outputToDiscord(`${t('bot.cmd.run.blockedcmd')}`);
         }
@@ -1614,7 +1665,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (!['add', 'remove', 'info'].includes(subcmd || '')) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.blacklist.usage', { prefix: config.botprefix })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.usage', { prefix: config.botprefix })}`);
         else
           await outputToDiscord(`${t('bot.cmd.blacklist.usagedc', { prefix: config.botprefix })}`);
         return;
@@ -1625,12 +1676,12 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
         if (!list.length) {
           if (source === 'mc')
-            await bot.chat(`/me &8[&e🛈&8] &e${displayName}, &c${t('bot.cmd.blacklist.empty')}`);
+            await bot.chat(`/m ${displayName} &c${t('bot.cmd.blacklist.empty')}`);
           else
             await outputToDiscord(`${t('bot.cmd.blacklist.empty')}`);
         } else {
           if (source === 'mc')
-            await bot.chat(`/me &8[&e🛈&8] &e${displayName}, &a${t('bot.cmd.blacklist.list', { list: list.join(', ') })}`);
+            await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.list', { list: list.join(', ') })}`);
           else
             await outputToDiscord(`${t('bot.cmd.blacklist.listdc', { list: list.join(', ') })}`);
         }
@@ -1639,16 +1690,16 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (!target) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.blacklist.usage_sub', { prefix: config.botprefix, subcmd })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.usage_sub', { prefix: config.botprefix, subcmd })}`);
         else
           await outputToDiscord(`${t('bot.cmd.blacklist.usage_subdc', { prefix: config.botprefix, subcmd })}`);
         break;
       }
 
       const targetUser = await resolveUserArg(target);
-      if (!targetUser) {
+      if (!targetUser || !(await userExists(targetUser))) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
         else
           await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
         return;
@@ -1658,7 +1709,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (!isConsole && (role === 'moder' || role === 'owner')) {
         const roleName = role === 'owner' ? 'владельца' : 'модера';
         if (source === 'mc')
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.cannot_manage', { role: roleName })}`);
+          await bot.chat(`/m ${displayName} &c${t('bot.cmd.blacklist.cannot_manage', { role: roleName })}`);
         else
           await outputToDiscord(`${t('bot.cmd.blacklist.cannot_manage', { role: roleName })}`);
         break;
@@ -1667,7 +1718,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (subcmd === 'add') {
         if (await isBlacklisted(targetUser)) {
           if (source === 'mc')
-            await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.already', { user: targetUser })}`);
+            await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.already', { user: targetUser })}`);
           else
             await outputToDiscord(`${t('bot.cmd.blacklist.alreadydc', { user: targetUser })}`);
         } else {
@@ -1681,7 +1732,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (subcmd === 'remove') {
         if (!(await isBlacklisted(targetUser))) {
           if (source === 'mc')
-            await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.blacklist.not_in', { user: targetUser })}`);
+            await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.not_in', { user: targetUser })}`);
           else
             await outputToDiscord(`${t('bot.cmd.blacklist.not_indc', { user: targetUser })}`);
         } else {
@@ -1702,7 +1753,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (!target || !timeStr || !/^\d+[smhd]$/.test(timeStr)) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.ban.usage', { prefix: config.botprefix })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.ban.usage', { prefix: config.botprefix })}`);
         } else {
           await outputToDiscord(`${t('bot.cmd.ban.usagedc', { prefix: config.botprefix })}`);
         }
@@ -1710,9 +1761,9 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       }
 
       const targetUser = await resolveUserArg(target);
-      if (!targetUser) {
+      if (!targetUser || !(await userExists(targetUser))) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
         else
           await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
         return;
@@ -1721,7 +1772,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const role = await getRole(targetUser);
       if (!isConsole && (role === 'moder' || role === 'owner')) {
         const roleName = role === 'owner' ? 'владельца' : 'модера';
-        await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.ban.cannot_ban', { role: roleName })}`);
+        await bot.chat(`/m ${displayName} &c${t('bot.cmd.ban.cannot_ban', { role: roleName })}`);
         return;
       }
 
@@ -1734,7 +1785,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (!ms) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.cmd.ban.bad_time')}`);
+          await bot.chat(`/m ${displayName} &c${t('bot.cmd.ban.bad_time')}`);
         } else {
           await outputToDiscord(`${t('bot.cmd.ban.bad_time')}`);
         }
@@ -1754,7 +1805,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const target = parts[1];
       if (!target) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.unban.usage', { prefix: config.botprefix })}`);
+          await bot.chat(`/m${displayName} ${t('bot.cmd.unban.usage', { prefix: config.botprefix })}`);
         else
           await outputToDiscord(`${t('bot.cmd.unban.usagedc', { prefix: config.botprefix })}`);
         return;
@@ -1763,7 +1814,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const targetNick = await resolveUserArg(target);
       if (!targetNick) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
         else
           await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
         return;
@@ -1772,7 +1823,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const banInfo = await isBanned(targetNick);
       if (!banInfo) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&e🛈&8] &c${displayName}, ${t('bot.cmd.unban.not_banned', { user: targetNick })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.unban.not_banned', { user: targetNick })}`);
         else
           await outputToDiscord(`${t('bot.cmd.unban.not_banneddc', { user: targetNick })}`);
         return;
@@ -1794,7 +1845,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
       if (!['give', 'take'].includes(subcmd || '') || !target || !targetCommand) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&e🛈&8] &c${t('bot.cmd.cmd.usage_mc', { username: displayName, prefix: config.botprefix })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.cmd.usage_mc', { prefix: config.botprefix })}`);
         } else {
           await outputToDiscord(`${t('bot.cmd.cmd.usage_discord', { prefix: config.botprefix })}`);
         }
@@ -1802,9 +1853,9 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       }
 
       const targetUser = await resolveUserArg(target);
-      if (!targetUser) {
+      if (!targetUser || !(await userExists(targetUser))) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&e🛈&8] &c${t('bot.usernotfound', { user: target })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
         } else {
           await outputToDiscord(t('bot.usernotfounddc', { user: target }));
         }
@@ -1834,7 +1885,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const subcmd = parts[1]?.toLowerCase();
 
       if (!subcmd || !['send', 'random', 'info', 'total'].includes(subcmd)) {
-        await bot.chat(`/me &8[&e🛈&8] &c${t('bot.cmd.feedback.usage', { username: displayName, prefix: config.botprefix })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.usage', { prefix: config.botprefix })}`);
         return;
       }
 
@@ -1849,33 +1900,33 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (subcmd === 'send') {
         const feedbackText = parts.slice(2).join(' ');
         if (!feedbackText) {
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${t('bot.cmd.feedback.no_text', { username: displayName })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.no_text')}`);
           return;
         }
 
         feedbackData[originalCasedUsername] = feedbackText;
         fs.writeFileSync(file, yaml.dump(feedbackData, { indent: 2, lineWidth: -1 }), 'utf-8');
 
-        await bot.chat(`/me &8[&#00ff00✔&8] &a${t('bot.cmd.feedback.saved', { username: displayName })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.saved')}`);
       }
 
       if (subcmd === 'random') {
         const keys = Object.keys(feedbackData);
         if (keys.length === 0) {
-          await bot.chat(`/me &8[&e🛈&8] &c${t('bot.cmd.feedback.empty', { username: displayName })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.empty')}`);
           return;
         }
 
         const randomUser = keys[Math.floor(Math.random() * keys.length)];
         const feedback = feedbackData[randomUser];
 
-        await bot.chat(`/me &8[&e🛈&8] &6${t('bot.cmd.feedback.from', { user: randomUser, text: feedback })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.from', { user: randomUser, text: feedback })}`);
       }
 
       if (subcmd === 'total') {
         const total = Object.keys(feedbackData).length;
 
-        await bot.chat(`/me &8[&e🛈&8] &6${t('bot.cmd.feedback.total', { username: displayName, total })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.total', { total })}`);
       }
 
       if (subcmd === 'info') {
@@ -1883,7 +1934,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         const target = targetUser ? targetUser.toLowerCase() : null;
 
         if (!target) {
-          await bot.chat(`/me &8[&e🛈&8] &c${t('bot.cmd.feedback.info_usage', { username: displayName, prefix: config.botprefix })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.info_usage', { prefix: config.botprefix })}`);
           return;
         }
 
@@ -1891,13 +1942,13 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           .find(([name]) => name.toLowerCase() === target);
 
         if (!feedbackEntry) {
-          await bot.chat(`/me &8[&e🛈&8] &c${t('bot.cmd.feedback.not_found', { username: displayName, user: targetUser })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.not_found', { user: targetUser })}`);
           return;
         }
 
         const [name, feedbackText] = feedbackEntry;
 
-        await bot.chat(`/me &8[&e🛈&8] &6${t('bot.cmd.feedback.from', { user: name, text: feedbackText })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.feedback.from', { user: name, text: feedbackText })}`);
       }
 
       break;
@@ -1907,7 +1958,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const target = parts[1];
 
       if (!target) {
-        if (source === 'mc') await bot.chat(`/me &8[&e🛈&8] ${t('bot.cmd.rape.usage', { username: displayName, prefix: config.botprefix })}`);
+        if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.rape.usage', { prefix: config.botprefix })}`);
         if (source === 'discord') await outputToDiscord(`${t('bot.cmd.rape.usagedc', { prefix: config.botprefix })}`);
         return;
       }
@@ -1936,33 +1987,166 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (arg?.toLowerCase() === 'top') {
         db.all('SELECT nickname, balance FROM users ORDER BY balance DESC LIMIT 5', [], async (err, rows) => {
           if (err || !rows.length) {
-            await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.top_empty')}`);
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.top_empty')}`);
             return;
           }
 
           const topPlayers = rows
-            .map((r, i) => `&d${i + 1}. &a${r.nickname} &7- &6${r.balance}⛃`)
+            .map((r, i) => `&d${i + 1}. &a${r.nickname} &7- &6${r.balance.toLocaleString('de-DE')}⛃`)
             .join(' &8| ');
 
-          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.top_list', { list: topPlayers })}`);
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.top_list', { list: topPlayers })}`);
         });
         break;
       }
 
-      if (arg && arg !== username) {
+      if (arg && arg.toLowerCase() !== 'withdraw' && arg !== username) {
         const targetUser = await resolveUserArg(arg);
-        if (!targetUser) {
-          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.not_found', { username: displayName })}`);
+        if (!targetUser || !(await userExists(targetUser))) {
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.not_found')}`);
           break;
         }
 
         const targetBalance = await getBalance(targetUser);
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.target', { username: displayName, target: targetUser, balance: targetBalance })}`);
+        await bot.chat(`/m ${username} ${t('bot.cmd.balance.target', { target: targetUser, balance: targetBalance.toLocaleString('de-DE') })}`);
+        break;
+      }
+
+      if (arg?.toLowerCase() === 'withdraw') {
+
+        const sub = parts[2]?.toLowerCase();
+
+        if (sub === 'confirm') {
+          const targetUser = parts[3];
+          if (!targetUser) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_selectuser')}`);
+            break;
+          }
+
+          const role = await getRole(username);
+          if (role !== 'owner') {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_confirmonlyowner')}`);
+            break;
+          }
+
+          const request = withdrawRequests.get(targetUser);
+          if (!request) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_norequest')}`);
+            break;
+          }
+
+          const amount = request.amount;
+
+          if (amount < config.minwithdraw) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_min', { min: config.minwithdraw })}`);
+            break;
+          }
+
+          let botBalance;
+          try {
+            botBalance = await getBotBalance();
+          } catch (err) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.errorbotbalance')}`);
+            break;
+          }
+
+          if (botBalance < amount) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.nobotmoney', { botBalance })}`);
+            break;
+          }
+
+          await changeBalance(targetUser, -amount);
+          bot.chat(`/pay ${targetUser} ${amount}`);
+
+          withdrawRequests.delete(targetUser);
+
+          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.withdraw_confirmed', { amount: amount.toLocaleString('de-DE'), targetUser, username })}`);
+          break;
+        }
+
+        if (sub === 'decline') {
+          const targetUser = parts[3];
+          if (!targetUser) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_selectuser')}`);
+            break;
+          }
+
+          const role = await getRole(username);
+          if (role !== 'owner') {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_declinemonlyowner')}`);
+            break;
+          }
+
+          const request = withdrawRequests.get(targetUser);
+          if (!request) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_norequest')}`);
+            break;
+          }
+
+          withdrawRequests.delete(targetUser);
+
+          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.withdraw_declined', { amount: request.amount.toLocaleString('de-DE'), targetUser, username })}`);
+          break;
+        }
+
+
+        const amount = parseInt(parts[2], 10);
+        if (isNaN(amount) || amount <= 0) {
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_invalid')}`);
+          break;
+        }
+
+        if (amount < config.minwithdraw) {
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_min', { min: config.minwithdraw })}`);
+          break;
+        }
+
+        const playerCoins = await getBalance(username);
+        if (playerCoins < amount) {
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_nomoney', { amount: amount.toLocaleString('de-DE') })}`);
+          break;
+        }
+
+        let botBalance;
+        try {
+          botBalance = await getBotBalance();
+        } catch (err) {
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.errorbotbalance')}`);
+          break;
+        }
+
+        if (botBalance < amount) {
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.nobotmoney', { botBalance })}`);
+          break;
+        }
+
+        if (amount >= config.minwithdrawconfirm) {
+
+          if (withdrawRequests.has(username)) {
+            await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_activerequest')}`);
+            break;
+          }
+
+          withdrawRequests.set(username, {
+            amount,
+            createdAt: Date.now()
+          });
+
+          await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_requestsended', { amount: amount.toLocaleString('de-DE') })}`);
+          await outputToDiscord(`${t('bot.cmd.balance.withdraw_notifysendrequest', { username, amount: amount.toLocaleString('de-DE'), prefix: config.botprefix })}`)
+          break;
+        }
+
+        await changeBalance(username, -amount);
+        bot.chat(`/pay ${username} ${amount}`);
+
+        await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_done', { amount: amount.toLocaleString('de-DE') })}`);
+        await outputToDiscord(`${t('bot.cmd.balance.withdraw_notifydone', { username, amount: amount.toLocaleString('de-DE') })}`)
         break;
       }
 
       const balance = await getBalance(username);
-      await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.balance.your', { username: displayName, balance })}`);
+      await bot.chat(`/m ${username} ${t('bot.cmd.balance.your', { balance: balance.toLocaleString('de-DE') })}`);
       break;
     }
 
@@ -1971,9 +2155,9 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const target = parts[2];
       const amount = parseInt(parts[3], 10);
 
-      if (!['give', 'take'].includes(subcmd || '') || !target || isNaN(amount)) {
+      if (!['give', 'take', 'set'].includes(subcmd || '') || !target || isNaN(amount)) {
         if (source === 'mc') {
-          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.usage', { username: displayName, prefix: config.botprefix })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.eco.usage', { prefix: config.botprefix })}`);
         } else {
           await outputToDiscord(`${t('bot.cmd.eco.usagedc', { prefix: config.botprefix })}`);
         }
@@ -1981,9 +2165,10 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       }
 
       const targetUser = await resolveUserArg(target);
-      if (!targetUser) {
+
+      if (!targetUser || !(await userExists(targetUser))) {
         if (source === 'mc')
-          await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.usernotfound', { user: target })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
         else
           await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
         return;
@@ -1992,19 +2177,28 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       if (subcmd === 'give') {
         await changeBalance(targetUser, amount);
 
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.give_mc', { username: displayName, target: targetUser, amount })}`);
+        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.give_mc', { username: displayName, target: targetUser, amount: amount.toLocaleString('de-DE') })}`);
 
         if (source === 'discord')
-          await outputToDiscord(`${t('bot.cmd.eco.give_dc', { target: targetUser, amount })}`);
+          await outputToDiscord(`${t('bot.cmd.eco.give_dc', { target: targetUser, amount: amount.toLocaleString('de-DE') })}`);
       }
 
       if (subcmd === 'take') {
         await changeBalance(targetUser, -amount);
 
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.take_mc', { username: displayName, target: targetUser, amount })}`);
+        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.take_mc', { username: displayName, target: targetUser, amount: amount.toLocaleString('de-DE') })}`);
 
         if (source === 'discord')
-          await outputToDiscord(`${t('bot.cmd.eco.take_dc', { target: targetUser, amount })}`);
+          await outputToDiscord(`${t('bot.cmd.eco.take_dc', { target: targetUser, amount: amount.toLocaleString('de-DE') })}`);
+      }
+
+      if (subcmd === 'set') {
+        await setBalance(targetUser, amount);
+
+        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.eco.set_mc', { username: displayName, target: targetUser, amount: amount.toLocaleString('de-DE') })}`);
+
+        if (source === 'discord')
+          await outputToDiscord(`${t('bot.cmd.eco.set_dc', { target: targetUser, amount: amount.toLocaleString('de-DE') })}`);
       }
 
       break;
@@ -2016,31 +2210,31 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const sender = realUsername;
 
       if (!target || isNaN(amount) || amount <= 0) {
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.pay.usage', { prefix: config.botprefix })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.pay.usage', { prefix: config.botprefix })}`);
         return;
       }
 
       const targetUser = await resolveUserArg(target);
-      if (!targetUser) {
-        await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.usernotfound', { user: target })}`);
+      if (!targetUser || !(await userExists(targetUser))) {
+        await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
         return;
       }
 
       if (targetUser === sender) {
-        await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.pay.self', { username: displayName })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.pay.self')}`);
         return;
       }
 
       const senderBalance = await getBalance(sender);
       if (senderBalance < amount) {
-        await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.pay.no_money', { username: displayName, balance: senderBalance })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.pay.no_money', { balance: senderBalance })}`);
         return;
       }
 
       await changeBalance(sender, -amount);
       await changeBalance(targetUser, amount);
 
-      await bot.chat(`/me &8[&#00FF00⛃&8] ${t('bot.cmd.pay.success', { username: displayName, target: targetUser, amount })}`);
+      await bot.chat(`/me &8[&#00FF00⛃&8] ${t('bot.cmd.pay.success', { username: displayName, target: targetUser, amount: amount.toLocaleString('de-DE') })}`);
       break;
     }
 
@@ -2051,25 +2245,25 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const oneTimeItems = ['rape'];
 
       if (!shop || !Array.isArray(shop)) {
-        await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.shop.unavailable', { username: displayName })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.unavailable')}`);
         return;
       }
 
       if (!subcmd) {
-        const list = shop.map(i => `&e${i.name} &8(&6${i.price}⛃&8)`).join('&e, ');
-        await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.shop.list', { username: displayName, list })}`);
+        const list = shop.map(i => `&e${i.name} &8(&6${i.price.toLocaleString('de-DE')}⛃&8)`).join('&e, ');
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.list', { list })}`);
         return;
       }
 
       if (subcmd === 'buy') {
         if (!itemId) {
-          await bot.chat(`/me &8[&6⛃&8] ${t('bot.cmd.shop.usage', { prefix: config.botprefix, username: displayName })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.usage', { prefix: config.botprefix })}`);
           return;
         }
 
         const item = shop.find(i => i.id.toLowerCase() === itemId || i.name.toLowerCase() === itemId);
         if (!item) {
-          await bot.chat(`/me &8[&#00FF00⛃&8] ${t('bot.cmd.shop.not_found', { username: displayName, item: itemId })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.not_found', { item: itemId })}`);
           return;
         }
 
@@ -2078,14 +2272,14 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         if (oneTimeItems.includes(itemKey)) {
           if (!purchases[buyer]) purchases[buyer] = [];
           if (purchases[buyer].includes(itemKey)) {
-            await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.shop.already_bought', { username: displayName, item: item.name })}`);
+            await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.already_bought', { item: item.name })}`);
             return;
           }
         }
 
         const bal = getBalance(buyer);
         if (bal < item.price) {
-          await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.shop.not_enough', { username: displayName, item: item.name, price: item.price })}`);
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.not_enough', { item: item.name, price: item.price.toLocaleString('de-DE') })}`);
           return;
         }
 
@@ -2101,43 +2295,43 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           await bot.chat(commandToRun);
         }
 
-        await bot.chat(`/me &8[&#00FF00⛃&8] ${t('bot.cmd.shop.success', { username: displayName, item: item.name, price: item.price })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.success', { item: item.name, price: item.price.toLocaleString('de-DE') })}`);
       } else {
-        await bot.chat(`/me &8[&#FF0000⛃&8] ${t('bot.cmd.shop.invalid_sub', { username: displayName, prefix: config.botprefix })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.invalid_sub', { prefix: config.botprefix })}`);
       }
       break;
     }
 
     case 'code': {
       const codeName = parts[1]?.toLowerCase();
-      const username = realUsername.toLowerCase();
+      const username = realUsername
 
       if (!codeName) {
-        await bot.chat(`/me &8[&e🛈&8] ${t('bot.cmd.code.no_code', { username: displayName, prefix: config.botprefix })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.code.no_code', { prefix: config.botprefix })}`);
         return;
       }
 
       const codeObj = codesCache[codeName];
       if (!codeObj) {
-        await bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.cmd.code.not_found', { username: displayName, code: codeName })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.code.not_found', { code: codeName })}`);
         return;
       }
 
       const alreadyUsed = codeObj.usedBy?.includes(username);
       if (alreadyUsed && (codeObj.perPlayerLimit ?? 1) <= 1) {
-        await bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.cmd.code.already_used', { username: displayName })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.code.already_used')}`);
         return;
       }
 
       if (codeObj.globalLimit && (codeObj.usedTotal || 0) >= codeObj.globalLimit) {
-        await bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.cmd.code.limit_reached', { username: displayName })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.code.limit_reached')}`);
         return;
       }
 
       if (codeObj.action?.type === 'money') {
         const amount = codeObj.action.amount || 0;
         changeBalance(username, amount);
-        await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.code.activated_money', { username: displayName, amount })}`);
+        await bot.chat(`/m ${displayName} &8[&#00ff00🛈&8] ${t('bot.cmd.code.activated_money', { amount: amount.toLocaleString('de-DE') })}`);
       }
 
       if (codeObj.action?.type === 'command') {
@@ -2155,13 +2349,13 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     case 'bcode': {
       const codeName = parts[1]?.toLowerCase();
       if (!codeName) {
-        await bot.chat(`/me &8[&e🛈&8] ${t('bot.cmd.bcode.no_code', { username: displayName, prefix: config.botprefix })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.bcode.no_code', { prefix: config.botprefix })}`);
         return;
       }
 
       const codeObj = codesCache[codeName];
       if (!codeObj) {
-        await bot.chat(`/me &8[&#FF0000✘&8] ${t('bot.cmd.bcode.not_found', { username: displayName, code: codeName })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.bcode.not_found', { code: codeName })}`);
         return;
       }
 
@@ -2230,7 +2424,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       let cmdTemplate = [...commandParts];
 
       if (allIndex !== -1) {
-        players = Object.keys(bot.players).filter(p => p !== bot.username);
+        players = [...seenPlayers].filter(p => p !== bot.username);
 
         if (!players.length) {
           outputToDiscord(`${t('bot.cmd.spammer.no_players')}`);
@@ -2266,7 +2460,11 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         botprefix: t('bot.cmd.config.botprefix'),
         autoconsole: t('bot.cmd.config.autoconsole'),
         testmode: t('bot.cmd.config.testmode'),
-        lang: t('bot.cmd.config.lang')
+        lang: t('bot.cmd.config.lang'),
+        minwithdraw: t('bot.cmd.config.minwithdraw'),
+        mindeposit: t('bot.cmd.config.mindeposit'),
+        minbet: t('bot.cmd.config.minbet'),
+        minwithdrawconfirm: t('bot.cmd.config.minwithdrawconfirm')
       };
 
       const hiddenParams = ['host', 'port', 'botnick'];
@@ -2334,12 +2532,13 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     }
 
     case 'role': {
-      const args = parts.slice(1);
+      const args = parts.slice(1).map(a => a?.trim()).filter(Boolean);
       const sub = args[0];
       const roles = getRoles();
 
       if (!sub) {
-        await outputToDiscord(t('bot.cmd.role.usage', { prefix: config.botprefix }));
+        if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage', { prefix: config.botprefix })}`);
+        else await outputToDiscord(t('bot.cmd.role.usagedc', { prefix: config.botprefix }));
         break;
       }
 
@@ -2348,82 +2547,106 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         const display = args.slice(2).join(' ');
 
         if (!roleName || !display) {
-          await outputToDiscord(t('bot.cmd.role.usage_add', { prefix: config.botprefix }));
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage_add', { prefix: config.botprefix })}`);
+          else await outputToDiscord(t('bot.cmd.role.usage_adddc', { prefix: config.botprefix }));
           break;
         }
+
         if (roles[roleName]) {
-          await outputToDiscord(t('bot.cmd.role.exists', { role: roleName }));
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.exists', { role: roleName })}`);
+          else await outputToDiscord(t('bot.cmd.role.existsdc', { role: roleName }));
           break;
         }
 
         roles[roleName] = { display, cmds: [] };
         saveRoles();
-        await outputToDiscord(t('bot.cmd.role.created', { role: roleName }));
+
+        if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.created', { role: roleName })}`);
+        else await outputToDiscord(t('bot.cmd.role.createddc', { role: roleName }));
         break;
       }
 
       if (sub === 'remove') {
         const roleName = args[1];
-        if (!roles[roleName]) {
-          await outputToDiscord(t('bot.cmd.role.notfound', { role: roleName }));
+
+        if (!roleName || !roles[roleName]) {
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.notfound', { role: roleName })}`);
+          else await outputToDiscord(t('bot.cmd.role.notfounddc', { role: roleName }));
           break;
         }
 
         delete roles[roleName];
         saveRoles();
+
         db.run('UPDATE users SET role = "user" WHERE role = ?', [roleName]);
-        await outputToDiscord(t('bot.cmd.role.removed', { role: roleName }));
+
+        if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.removed', { role: roleName })}`);
+        else await outputToDiscord(t('bot.cmd.role.removeddc', { role: roleName }));
         break;
       }
 
       if (sub === 'set') {
-        const target = args[1];
+        const targetArg = args[1];
         const roleName = args[2];
 
-        if (!target || !roles[roleName]) {
-          await outputToDiscord(t('bot.cmd.role.usage_set', { prefix: config.botprefix }));
+        if (!targetArg || !roles[roleName]) {
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage_set', { prefix: config.botprefix })}`);
+          else await outputToDiscord(t('bot.cmd.role.usage_setdc', { prefix: config.botprefix }));
           break;
         }
 
-        const nickname = await resolveUserArg(target);
+        const nickname = await resolveUserArg(targetArg);
         if (!nickname) {
-          await outputToDiscord(t('bot.usernotfounddc', { user: target }));
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.usernotfounddc', { user: targetArg })}`);
+          else await outputToDiscord(t('bot.usernotfounddcdc', { user: targetArg }));
           break;
         }
 
         db.run('UPDATE users SET role = ? WHERE nickname = ?', [roleName, nickname]);
-        await outputToDiscord(t('bot.cmd.role.assigned', { user: nickname, role: roleName }));
+
+        const roleData = roles[roleName];
+        const roleDisplay = roleData?.display || '&7???';
+
+        await bot.chat(`/me &8[&#439FFF🛡&8] ${t('bot.cmd.role.assigned', { by: displayName, user: nickname, role: roleDisplay })}`);
+        if (source === 'discord') await outputToDiscord(t('bot.cmd.role.assigneddc', { user: nickname, role: roleName }));
         break;
       }
 
       if (sub === 'cmd') {
         const action = args[1];
         const roleName = args[2];
-        const command = args[3];
+        const command = args[3]?.replace(config.botprefix, '');
 
         if (!['add', 'remove'].includes(action) || !roles[roleName] || !command) {
-          await outputToDiscord(t('bot.cmd.role.usage_cmd', { prefix: config.botprefix }));
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage_cmd', { prefix: config.botprefix })}`);
+          else await outputToDiscord(t('bot.cmd.role.usage_cmddc', { prefix: config.botprefix }));
           break;
         }
 
-        const cmds = roles[roleName].cmds || [];
+        const cmds = roles[roleName].cmds ?? [];
 
         if (action === 'add') {
           if (!cmds.includes(command)) cmds.push(command);
+          roles[roleName].cmds = cmds;
           saveRoles();
-          await outputToDiscord(t('bot.cmd.role.cmd_added', { command, role: roleName }));
+
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.cmd_added', { command, role: roleName })}`);
+          else await outputToDiscord(t('bot.cmd.role.cmd_addeddc', { command, role: roleName }));
           break;
         }
 
         if (action === 'remove') {
           roles[roleName].cmds = cmds.filter(c => c !== command);
           saveRoles();
-          await outputToDiscord(t('bot.cmd.role.cmd_removed', { command, role: roleName }));
+
+          if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.cmd_removed', { command, role: roleName })}`);
+          else await outputToDiscord(t('bot.cmd.role.cmd_removeddc', { command, role: roleName }));
           break;
         }
       }
 
-      await outputToDiscord(t('bot.cmd.role.unknown_sub'));
+      if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.unknown_sub')}`);
+      else await outputToDiscord(t('bot.cmd.role.unknown_subdc'));
       break;
     }
 
@@ -2452,9 +2675,138 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       break;
     }
 
+    case 'casino': {
+      const args = message.trim().split(/\s+/).slice(1);
+      const sub = args[0];
+
+      if (sub !== 'bet') {
+        bot.chat(`/m ${displayName} ${t('bot.cmd.casino.usage', { prefix: config.botprefix })}`);
+        break;
+      }
+
+      const bet = parseInt(args[1]);
+      if (!bet || bet <= 0) { bot.chat(`/m ${displayName} ${t('bot.cmd.casino.zerobet')}`); break; }
+      if (bet < config.minbet) { bot.chat(`/m ${displayName} ${t('bot.cmd.casino.minbet')}`); break; }
+
+      const balance = await getBalance(displayName);
+      if (bet > balance) { bot.chat(`/m ${displayName} ${t('bot.cmd.casino.nomoney')}`); break; }
+
+      const roll = Math.random() * 100;
+      let multiplier = 0;
+      if (roll < 45) multiplier = 0;
+      else if (roll < 75) multiplier = 1;
+      else if (roll < 90) multiplier = 2;
+      else if (roll < 96) multiplier = 3;
+      else if (roll < 99) multiplier = 4;
+      else multiplier = 5;
+
+      const profit = bet * multiplier - bet;
+      const newBalance = await changeBalance(displayName, profit);
+      const formattedProfit = profit.toLocaleString('de-DE');
+
+      if (multiplier === 0) {
+        bot.chat(`/me &8[&#FFC022✨&8] ${t('bot.cmd.casino.defeat', { displayName, bet: bet.toLocaleString('de-DE'), newBalance: newBalance.toLocaleString('de-DE') })}`);
+      } else if (multiplier === 1) {
+        bot.chat(`/me &8[&#FFC022✨&8] ${t('bot.cmd.casino.return', { displayName, newBalance: newBalance.toLocaleString('de-DE') })}`);
+      } else {
+        bot.chat(`/me &8[&#FFC022✨&8] ${t('bot.cmd.casino.win', { displayName, multiplier, profit: formattedProfit, newBalance: newBalance.toLocaleString('de-DE') })}`);
+      }
+
+      break;
+    }
+
+    case 'bj': {
+      const args = message.trim().split(/\s+/).slice(1);
+      const bjSub = args[0]?.toLowerCase();
+      const bet = parseInt(args[1]);
+
+      function drawCard() {
+        const cards = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11];
+        return cards[Math.floor(Math.random() * cards.length)];
+      }
+
+      function calculateTotal(hand) {
+        let total = hand.reduce((a, b) => a + b, 0);
+        let aces = hand.filter(c => c === 11).length;
+        while (total > 21 && aces > 0) { total -= 10; aces--; }
+        return total;
+      }
+
+      if (bjSub === 'start') {
+        if (!bet || bet <= 0) { bot.chat(`/m ${displayName} ${t('bot.cmd.casino.zerobet')}`); break; }
+        const balance = await getBalance(displayName);
+        if (bet > balance) { bot.chat(`/m ${displayName} ${t('bot.cmd.casino.nomoney')}`); break; }
+
+        await changeBalance(displayName, -bet);
+        const playerHand = [drawCard(), drawCard()];
+        const dealerHand = [drawCard(), drawCard()];
+
+        activeBlackjackGames.set(displayName, { bet, playerHand, dealerHand, status: 'playing' });
+
+        const total = calculateTotal(playerHand);
+        bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.yourcards')} &b${playerHand.join(', ')} &8(&9=${total}&8) &8| ${t('bot.cmd.casino.blackjack.dealercard')} &b${dealerHand[0]} &8| ${t('bot.cmd.casino.blackjack.usehitorstand', { prefix: config.botprefix })}`);
+        break;
+      }
+
+      if (bjSub === 'hit') {
+        const game = activeBlackjackGames.get(displayName);
+        if (!game || game.status !== 'playing') { bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.noactivegame')}`); break; }
+
+        game.playerHand.push(drawCard());
+        const total = calculateTotal(game.playerHand);
+
+        if (total > 21) {
+          game.status = 'lost';
+          bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.bust')} &6${game.bet.toLocaleString('de-DE')}⛃`);
+          bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.defeat_broadcast', { user: displayName, bet: game.bet.toLocaleString('de-DE') })}`);
+          activeBlackjackGames.delete(displayName);
+        } else {
+          bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.yourcards')} &b${game.playerHand.join(', ')} &8(&9=${total}&8) &8| ${t('bot.cmd.casino.blackjack.usehitorstand', { prefix: config.botprefix })}`);
+        }
+        break;
+      }
+
+      if (bjSub === 'stand') {
+        const game = activeBlackjackGames.get(displayName);
+        if (!game || game.status !== 'playing') { bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.noactivegame')}`); break; }
+
+        function dealerPlay(hand) {
+          while (calculateTotal(hand) < 17) { hand.push(drawCard()); }
+          return hand;
+        }
+
+        const dealerHand = dealerPlay(game.dealerHand);
+        const playerTotal = calculateTotal(game.playerHand);
+        const dealerTotal = calculateTotal(dealerHand);
+        let resultText = '';
+        const winbet = game.bet * 2;
+        const formattedWinBet = winbet.toLocaleString('de-DE');
+
+        if (dealerTotal > 21 || playerTotal > dealerTotal) {
+          resultText = `${t('bot.cmd.casino.blackjack.win')} &6${formattedWinBet}⛃`;
+          await changeBalance(displayName, winbet);
+          bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.win_broadcast', { user: displayName, bet: formattedWinBet })}`);
+        } else if (playerTotal === dealerTotal) {
+          resultText = `${t('bot.cmd.casino.blackjack.tie')} &8(&6${game.bet.toLocaleString('de-DE')}⛃&8)`;
+          await changeBalance(displayName, game.bet);
+          bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.tie_broadcast', { user: displayName })}`);
+        } else {
+          resultText = `${t('bot.cmd.casino.blackjack.defeat')} &6${game.bet.toLocaleString('de-DE')}⛃`;
+          bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.defeat_broadcast', { user: displayName, bet: game.bet.toLocaleString('de-DE') })}`);
+        }
+
+        bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.dealer')} &b${dealerHand.join(', ')} &8(&9=${dealerTotal}&8) &8| ${t('bot.cmd.casino.blackjack.yourcards')} &b${game.playerHand.join(', ')} &8(&9=${playerTotal}&8) &8| ${resultText}`);
+        activeBlackjackGames.delete(displayName);
+        break;
+      }
+
+      bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.usage', { prefix: config.botprefix })}`);
+      break;
+    }
+
     default: {
       if (source === 'mc') {
-        await bot.chat(`/me &8[&#FF0000✘&8] &c${displayName}, ${t('bot.unknowncmd', { cmd: config.botprefix + cmd })}`);
+        await bot.chat(`/m ${displayName} &c${t('bot.unknowncmd', { cmd: config.botprefix + cmd })}`);
       } else {
         await outputToDiscord(`${t('bot.unknowncmd', { cmd: config.botprefix + cmd })}`);
       }
@@ -2489,7 +2841,7 @@ bot.on('playerJoined', (player) => {
   if (seenPlayers.has(player.username)) return;
 
   seenPlayers.add(player.username)
-  const msg = `${timestamp}\n🟢 ${t('other.player.join', { username: player.username })}`;
+  const msg = `${timestamp}\n<:join:1462889409421639760> ${t('other.player.join', { username: player.username })}`;
   logChatEntry(msg);
   logToDiscordChatLog(`${msg}`);
 });
@@ -2498,7 +2850,7 @@ bot.on('playerLeft', (player) => {
   const timestamp = getFormattedTimestamp();
   if (!player?.username) return;
   seenPlayers.delete(player.username)
-  const msg = `${timestamp}\n🔴 ${t('other.player.left', { username: player.username })}`;
+  const msg = `${timestamp}\n<:leave:1462889414676975780> ${t('other.player.left', { username: player.username })}`;
   logChatEntry(msg);
   logToDiscordChatLog(`${msg}`);
 });
@@ -2506,9 +2858,8 @@ bot.on('playerLeft', (player) => {
 const pendingRealnames = new Map();
 
 bot.on('message', async (jsonMsg) => {
-  const text = jsonMsg.toString();
-  const parsed = (parseFormattedMessage(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xr]/gi, '');
-  const colored = (parseColoredText(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xr]/gi, '');
+  const parsed = (parseFormattedMessage(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xrl]/gi, '');
+  const colored = (parseColoredText(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xrl]/gi, '');
   if (parsed) console.log(colored);
 
   const arrowSymbol = '⇨'
@@ -2530,6 +2881,40 @@ bot.on('message', async (jsonMsg) => {
     }
   }
 
+  const coinConvertRegex = /\$([\d]{1,3}(?:,\d{3})*) получено от игрока (~?\w+)/;
+  const moneymatch = parsed.match(coinConvertRegex);
+
+  if (moneymatch) {
+    const money = parseInt(moneymatch[1].replace(/,/g, ''), 10);
+    let username = moneymatch[2].trim();
+    if (money === 0) return;
+
+    if (await isBlacklisted(username)) return;
+
+    if (username.startsWith('~')) {
+
+      requestRealName(username);
+
+      if (!pendingRealnames.has(username)) {
+        pendingRealnames.set(username, { coins: 0, logs: [], commands: [], answers: [], aimsg: [] });
+      }
+      const data = pendingRealnames.get(username);
+      data.coins = (data.coins || 0) + money;
+
+      return;
+    }
+
+    if (money < config.mindeposit) {
+      bot.chat(`/m ${username} ${t('bot.mindeposit', { min: config.mindeposit })}`);
+      bot.chat(`/pay ${username} ${money}`);
+      return;
+    }
+
+    await changeBalance(username, money);
+    bot.chat(`/m ${username} ${t('bot.deposit', { amount: money.toLocaleString('de-DE') })}`);
+    await outputToDiscord(`${t('bot.notifydeposit', { username, amount: money.toLocaleString('de-DE') })}`)
+  }
+
   if (pendingDiscordRun) {
     const cleanText = parseFormattedMessage(jsonMsg.json || jsonMsg);
     if (cleanText?.trim()) collectedRunOutput.push(cleanText.trim());
@@ -2538,7 +2923,7 @@ bot.on('message', async (jsonMsg) => {
       if (collectedRunOutput.length > 0) {
         const combined = collectedRunOutput.join('\n');
         if (pendingDiscordRun.source === 'discord')
-          await discordOutput.send({ embeds: [sendEmbed(`🖥️ ${t('bot.cmd.run.executing')}`, ``, { color: 0x000000, footer: 'RUN', fields: [{ name: `${t('bot.cmd.run.command', { command: pendingDiscordRun.command })}`, value: `\`\`\`${combined}\`\`\``, inline: true }], timestamp: true })] });
+          await outputToDiscord(`${combined}`);
       } else if (pendingDiscordRun?.source === 'discord') {
         await discordOutput.send({ embeds: [sendEmbed(`⚠️ ${t('bot.cmd.run.executing')}`, ``, { color: 0xf1c40f, footer: 'WARN', fields: [{ name: `${t('bot.error_occurred')}`, value: `${t('bot.cmd.run.nomsg', { cmd: pendingDiscordRun.command })}`, inline: true }], timestamp: true })] });
       }
@@ -2549,20 +2934,34 @@ bot.on('message', async (jsonMsg) => {
 
   const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
   if (realnameMatch) {
-    const displayNick = `~${realnameMatch[1]}`.toLowerCase();
+    const displayNick = `~${realnameMatch[1]}`
     const realNick = realnameMatch[2];
     nickMap.set(displayNick, realNick);
 
     if (pendingRealnames.has(displayNick)) {
       const data = pendingRealnames.get(displayNick);
 
+      if (data.coins) {
+        if (realNick === 'Unknown Player') return;
+		
+        if (data.coins < config.mindeposit) {
+          bot.chat(`/m ${realNick} ${t('bot.mindeposit', { min: config.mindeposit })}`);
+          bot.chat(`/pay ${realNick} ${data.coins}`);
+          return;
+        }
+
+        await changeBalance(realNick, data.coins);
+        bot.chat(`/m ${realNick} ${t('bot.deposit', { amount: data.coins.toLocaleString('de-DE') })}`);
+        await outputToDiscord(`${t('bot.notifydeposit', { username: realNick, amount: data.coins.toLocaleString('de-DE') })}`)
+      }
+
       for (const log of data.logs) {
-        await logToDiscordChatLog(`${log.timestamp} 💬 **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+        await logToDiscordChatLog(`${log.timestamp} <:chat:1462889419294900299> **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
       }
 
       for (const cmd of data.commands) {
         try {
-          await ensureUser(realNick)
+          await ensureUser(realNick);
           await processUserCommand(realNick.toLowerCase(), cmd);
         } catch (err) {
           console.error(
@@ -2593,7 +2992,7 @@ bot.on('message', async (jsonMsg) => {
         nickMap.set(displayNick, "Unknown Player");
 
         for (const log of data.logs) {
-          await logToDiscordChatLog(`${log.timestamp} 💬 **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+          await logToDiscordChatLog(`${log.timestamp} <:chat:1462889419294900299> **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
         }
 
         pendingRealnames.delete(displayNick);
@@ -2682,10 +3081,10 @@ rl.on('line', async (input) => {
   const trimmed = input.trim();
   const lowered = trimmed.toLowerCase();
 
-  const consoleCommands = ['blacklist', 'eco', 'cmd', 'ban', 'unban', 'rape', 'exit', 'info', 'bcode', 'restart'];
+  const consoleCommands = ['blacklist', 'eco', 'cmd', 'ban', 'unban', 'rape', 'exit', 'info', 'bcode', 'restart', 'role'];
 
   if (consoleCommands.some(cmd => lowered.startsWith(config.botprefix + cmd))) {
-    await processUserCommand('CONSOLE', trimmed);
+    await processUserCommand('SYSTEM', trimmed);
   } else if (trimmed.startsWith('menu.slot.')) {
     const slotStr = trimmed.split('.')[2];
     const slot = parseInt(slotStr, 10);

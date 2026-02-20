@@ -1,9 +1,13 @@
-host: ip # Айпи сервера
-port: 25565 # Порт сервера
-botnick: AuroraBot # Никнейм бота
-lang: ru
+host: ip # Server IP
+port: 25565 # Server Port
+botnick: AuroraBot # Bot NickName
+lang: ru # Language. Default language: ru
 
 msg_hidename: false
 botprefix: $
 autoconsole: false
 testmode: false
+minwithdraw: 10000
+mindeposit: 10000
+minbet: 10000
+minwithdrawconfirm: 10000
