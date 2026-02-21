@@ -797,13 +797,12 @@ function requestRealName(nick) {
 }
 
 function resolveUsername(nickOrDisplayName) {
-  const lower = nickOrDisplayName.toLowerCase();
 
   for (const [realUsername, playerData] of Object.entries(bot.players)) {
     if (!playerData || !playerData.username) continue;
 
-    const displayName = playerData.displayName?.toString()?.toLowerCase();
-    if (displayName === lower || realUsername.toLowerCase() === lower) {
+    const displayName = playerData.displayName?.toString();
+    if (displayName === nickOrDisplayName || realUsername === lower) {
       return realUsername;
     }
   }
@@ -861,13 +860,12 @@ async function hasPermission(username, cmd) {
     if (cmds.includes(cmd)) return true;
   }
 
-  const user = username.toLowerCase();
   cmd = cmd.toLowerCase();
 
   return new Promise((resolve, reject) => {
     db.get(
       `SELECT 1 FROM user_permissions WHERE nickname = ? AND command = ? LIMIT 1`,
-      [user, cmd],
+      [username, cmd],
       (err, row) => {
         if (err) return reject(err);
         resolve(!!row);
@@ -896,7 +894,6 @@ function formatUptime(ms) {
 async function grantPermission(nickname, command) {
   if (!nickname || !command) return;
 
-  nickname = nickname
   command = command.toLowerCase();
 
   db.run(
@@ -913,7 +910,6 @@ async function grantPermission(nickname, command) {
 async function revokePermission(nickname, command) {
   if (!nickname || !command) return;
 
-  nickname = nickname
   command = command.toLowerCase();
 
   db.run(
@@ -928,12 +924,11 @@ async function revokePermission(nickname, command) {
 }
 
 async function getUserExtraPerms(nickname) {
-  const user = nickname.toLowerCase();
 
   return new Promise((resolve, reject) => {
     db.all(
       `SELECT command FROM user_permissions WHERE nickname = ?`,
-      [user],
+      [nickname],
       (err, rows) => {
         if (err) return reject(err);
         resolve(rows.map(r => r.command));
@@ -1001,7 +996,7 @@ function giveGameReward(username) {
   awaitingAnswer = false;
   const reward = pickReward(currentGame.rewards);
   if (reward) {
-    changeBalance(username.toLowerCase(), reward);
+    changeBalance(username, reward);
     bot.chat(`/me &8[&a❓&8] &e${username} ${t('bot.chatgame_correctanswer')} &e${reward}⛃!`);
   } else {
     bot.chat(`/me &8[&a❓&8] &e${username} ${t('bot.chatgame_correctanswererror')}`);
@@ -2241,7 +2236,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
     case 'shop': {
       const subcmd = parts[1]?.toLowerCase();
       const itemId = parts[2]?.toLowerCase();
-      const buyer = realUsername.toLowerCase();
+      const buyer = realUsername;
       const oneTimeItems = ['rape'];
 
       if (!shop || !Array.isArray(shop)) {
@@ -2962,7 +2957,7 @@ bot.on('message', async (jsonMsg) => {
       for (const cmd of data.commands) {
         try {
           await ensureUser(realNick);
-          await processUserCommand(realNick.toLowerCase(), cmd);
+          await processUserCommand(realNick, cmd);
         } catch (err) {
           console.error(
             chalk.bold.hex('#FF0000')(t('bot.error_prefix')) + ' ' +
@@ -3012,7 +3007,7 @@ bot.on('message', async (jsonMsg) => {
       const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
       if (realnameMatch) {
         usernameRaw = realnameMatch[2];
-        nickMap.set(`~${realnameMatch[1]}`.toLowerCase(), usernameRaw);
+        nickMap.set(`~${realnameMatch[1]}`, usernameRaw);
       }
     }
 
