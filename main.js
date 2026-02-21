@@ -802,7 +802,7 @@ function resolveUsername(nickOrDisplayName) {
     if (!playerData || !playerData.username) continue;
 
     const displayName = playerData.displayName?.toString();
-    if (displayName === nickOrDisplayName || realUsername === lower) {
+    if (displayName === nickOrDisplayName || realUsername === nickOrDisplayName) {
       return realUsername;
     }
   }
