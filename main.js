@@ -270,7 +270,7 @@ discordClient.on('messageCreate', async (msg) => {
     const roles = new Set(guildMember.roles.cache.map(role => role.id));
 
     if (msg.author.id && !roles.has('Your Role ID')) {
-      await discordOutput.send({ embeds: [sendEmbed(`<:accessdenied:1463611412143149280> ${t('discord.accessdenied')}`, ``, { color: 0x5499f4, footer: 'DENIED', fields: [{ name: `${t('discord.noaccess')}`, value: `\`\`\`${content}\`\`\``, inline: true }], timestamp: true })] });
+      await discordOutput.send({ embeds: [sendEmbed(`⛔ ${t('discord.accessdenied')}`, ``, { color: 0xff0000, footer: 'DENIED', fields: [{ name: `${t('discord.noaccess')}`, value: `\`\`\`${content}\`\`\``, inline: true }], timestamp: true })] });
       return;
     }
 
@@ -1140,7 +1140,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
             );
           }
         }
-        await logToDiscordChatLog(`${timestamp} <:chat:1462889419294900299> **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
+        await logToDiscordChatLog(`${timestamp} 💬 **\`${usernameRaw}\`**\n\`\`\`\n${msgText}\n\`\`\``);
         return;
       }
 
@@ -1208,7 +1208,7 @@ async function checkBan(username) {
   if (banInfo) {
     const msLeft = banInfo.unbanAt - Date.now();
     const timeLeft = formatDuration(msLeft);
-    bot.chat(`/me ${username} ${t('bot.bot_blocked', { timeLeft: timeLeft, reason: banInfo.reason })}`);
+    bot.chat(`/m ${username} ${t('bot.bot_blocked', { timeLeft: timeLeft, reason: banInfo.reason })}`);
     return true;
   }
   return false;
@@ -2836,7 +2836,7 @@ bot.on('playerJoined', (player) => {
   if (seenPlayers.has(player.username)) return;
 
   seenPlayers.add(player.username)
-  const msg = `${timestamp}\n<:join:1462889409421639760> ${t('other.player.join', { username: player.username })}`;
+  const msg = `${timestamp}\n🟢 ${t('other.player.join', { username: player.username })}`;
   logChatEntry(msg);
   logToDiscordChatLog(`${msg}`);
 });
@@ -2845,7 +2845,7 @@ bot.on('playerLeft', (player) => {
   const timestamp = getFormattedTimestamp();
   if (!player?.username) return;
   seenPlayers.delete(player.username)
-  const msg = `${timestamp}\n<:leave:1462889414676975780> ${t('other.player.left', { username: player.username })}`;
+  const msg = `${timestamp}\n🔴 ${t('other.player.left', { username: player.username })}`;
   logChatEntry(msg);
   logToDiscordChatLog(`${msg}`);
 });
@@ -2951,7 +2951,7 @@ bot.on('message', async (jsonMsg) => {
       }
 
       for (const log of data.logs) {
-        await logToDiscordChatLog(`${log.timestamp} <:chat:1462889419294900299> **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+        await logToDiscordChatLog(`${log.timestamp} 💬 **\`${realNick}\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
       }
 
       for (const cmd of data.commands) {
@@ -2987,7 +2987,7 @@ bot.on('message', async (jsonMsg) => {
         nickMap.set(displayNick, "Unknown Player");
 
         for (const log of data.logs) {
-          await logToDiscordChatLog(`${log.timestamp} <:chat:1462889419294900299> **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
+          await logToDiscordChatLog(`${log.timestamp} 💬 **\`Unknown Player\`**\n\`\`\`\n${log.msgText}\n\`\`\``);
         }
 
         pendingRealnames.delete(displayNick);
