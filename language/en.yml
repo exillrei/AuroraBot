@@ -194,6 +194,10 @@ bot:
       withdraw_notifysendrequest: "{username} sent withdrawal request for {amount}⛃\nConfirm or decline the request in game! ({prefix}balance withdraw confirm/decline {username})"
       withdraw_notifydone: "{username} withdrew {amount}⛃"
       withdraw_min: "&cMinimum withdrawal amount: &6{min}⛃"
+      withdraw_requestsonlydiscord: "&cCannot view requests in-game."
+      withdraw_noactiverequests: "No active withdrawal requests."
+      withdraw_activerequests: "Active withdrawal requests"
+      withdraw_disabled: "&cWithdrawals are disabled."
     eco:
       usage: "&aUse: &e{prefix}eco &agive&8/&ctake/&eset &8<&e nick/ID&8> &8<&a amount&8>"
       usagedc: "Use: {prefix}eco give/take <nick/ID> <amount>"
@@ -217,6 +221,8 @@ bot:
       not_enough: "&cNot enough coins to buy &e{item} &8(&6{price}⛃&8)."
       success: '&aYou bought &e"{item}"&a for &e{price}⛃.'
       invalid_sub: "&cUnknown shop subcommand. Use: &e{prefix}shop buy"
+      soldout: "&cItem sold out."
+      availableonly: "&cAvailable only &6{item} &cpcs."
     code:
       no_code: "&aSpecify code: &e{prefix}code &8<&c code&8>"
       not_found: "&cCode &e{code} &cnot found."
@@ -256,6 +262,8 @@ bot:
       mindeposit: "Minimum deposit"
       minbet: "Minimum bet"
       minwithdrawconfirm: "Minimum withdrawal amount to send confirmation request"
+      killswitch: "Turn off bot functionality"
+      disablewithdraw: "Disable withdrawals"
     role:
       usagedc: |
         Usage:
@@ -310,6 +318,11 @@ bot:
         tie_broadcast: "&e{user} &6tied &8| &aGame: &dBlackJack"
         defeat_broadcast: "&e{user} &clost &6{bet}⛃ &8| &aGame: &dBlackJack"
         dealer: "&eDealer:"
+    broadcast:
+      usage: "Usage {prefix}broadcast <symbol> <text> [interval]"
+      stopped: "Broadcast stopped."
+      started: "Broadcast started.\nSymbol: {symbol}\nInterval: {interval} sec."
+      norepeat: "no repeat"
   yes: "Yes"
   no: "No"
   unknowncmd: "Unknown command: {cmd}"

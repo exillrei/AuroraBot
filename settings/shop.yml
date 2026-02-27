@@ -2,4 +2,5 @@
   name: test
   price: 7500
   oneTime: true
+  stock: 3
   command: $cmd give {player} rape

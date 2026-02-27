@@ -11,3 +11,5 @@ minwithdraw: 10000
 mindeposit: 10000
 minbet: 10000
 minwithdrawconfirm: 10000
+killswitch: true
+disablewithdraw: false

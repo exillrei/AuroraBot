@@ -172,8 +172,7 @@ if (!process.env.AI_API_KEY) {
 const bot = mineflayer.createBot({
   host: config.host,
   port: config.port,
-  username: config.botnick,
-  version: '1.20.4'
+  username: config.botnick
 });
 
 process.on('uncaughtException', async (err) => {
@@ -330,6 +329,10 @@ discordClient.on('interactionCreate', async interaction => {
   }
 });
 
+import registryOrVersion from 'prismarine-registry';
+const registry = registryOrVersion('1.21.11');
+const mclang = registry.language;
+
 const legacyColors = {
   black: "#000000",
   dark_blue: "#0000AA",
@@ -349,9 +352,8 @@ const legacyColors = {
   white: "#FFFFFF"
 };
 
-function parseColoredText(component) {
+function parseColoredText(component, mclang = {}) {
   if (!component) return '';
-
   if (typeof component === 'string') return component;
   if (typeof component !== 'object') return String(component);
 
@@ -359,61 +361,32 @@ function parseColoredText(component) {
 
   if (component.color) {
     const mapped = legacyColors[component.color] || component.color;
-    if (mapped.startsWith('#')) {
-      chalkFn = chalkFn.hex(mapped);
-    }
+    if (mapped.startsWith('#')) chalkFn = chalkFn.hex(mapped);
   }
-
   if (component.bold) chalkFn = chalkFn.bold;
   if (component.italic) chalkFn = chalkFn.italic;
   if (component.underlined) chalkFn = chalkFn.underline;
   if (component.strikethrough) chalkFn = chalkFn.strikethrough;
   if (component.obfuscated) chalkFn = chalkFn.inverse;
 
-
   let result = '';
-
   if (component.text) result += chalkFn(component.text);
   if (component['']) result += chalkFn(component['']);
 
-  if (component.translate && Array.isArray(component.with)) {
-    for (const w of component.with) {
-      result += parseColoredText(w);
+  if (component.translate) {
+    const template = mclang[component.translate] || component.translate;
+    let args = [];
+    if (Array.isArray(component.with)) {
+      args = component.with.map(w => parseColoredText(w, mclang));
     }
+    let index = 0;
+    const translated = template.replace(/%[0-9\$]*s/g, () => args[index++] || '');
+    result += chalkFn(translated);
   }
 
   if (component.extra && Array.isArray(component.extra)) {
     for (const e of component.extra) {
-      result += parseColoredText(e);
-    }
-  }
-
-  return result;
-}
-
-
-function parseFormattedMessage(msgObj) {
-  if (!msgObj) return '';
-
-  let result = '';
-
-  if (typeof msgObj.text === 'string') {
-    result += msgObj.text;
-  }
-
-  if (typeof msgObj[''] === 'string') {
-    result += msgObj[''];
-  }
-
-  if (Array.isArray(msgObj.extra)) {
-    for (const part of msgObj.extra) {
-      result += parseFormattedMessage(part);
-    }
-  }
-
-  if (Array.isArray(msgObj.with)) {
-    for (const part of msgObj.with) {
-      result += parseFormattedMessage(part);
+      result += parseColoredText(e, mclang);
     }
   }
 
@@ -426,15 +399,10 @@ async function outputToDiscord(message) {
   try {
     let cleanMessage = '';
 
-    if (typeof message === 'object' && message.json) {
-      cleanMessage = parseFormattedMessage(message.json);
+    if (typeof message === 'object') {
+      cleanMessage = JSON.stringify(message.json);
     } else if (typeof message === 'string') {
-      try {
-        const maybeJson = JSON.parse(message);
-        cleanMessage = parseFormattedMessage(maybeJson);
-      } catch {
-        cleanMessage = message;
-      }
+      cleanMessage = message;
     }
 
     if (!cleanMessage || !cleanMessage.trim()) return;
@@ -970,7 +938,7 @@ function startChatGame() {
       chalk.hex('#ff7c7c')(`${t('bot.chatgame_readerror')} ${err}`)
     );
   }
-} 
+}
 
 setInterval(() => {
   if (!awaitingAnswer && bot.player) {
@@ -1005,6 +973,8 @@ function giveGameReward(username) {
 }
 
 async function processAI(realNick, msgText, source = 'mc') {
+
+  if (config.killswitch) return;
 
   if (await checkBan(realNick)) return;
 
@@ -1279,7 +1249,7 @@ async function setBalance(username, amount) {
 function getBotBalance() {
   return new Promise((resolve) => {
     const listener = async (jsonMsg) => {
-      const parsed = parseFormattedMessage(jsonMsg?.json || jsonMsg) + '';
+      const parsed = jsonMsg.toString();
       if (parsed.includes('Ваш баланс:')) {
         const match = parsed.match(/\$([\d]{1,3}(?:,\d{3})*|\d+)/);
         if (match) {
@@ -1363,12 +1333,59 @@ fs.watchFile(CODES_FILE, () => {
   loadCodes();
 });
 
+let broadcastInterval = null;
+
+function getSymbol(input) {
+  const map = {
+    '1': '&c⚠',
+    '2': '&e📢',
+    '3': '&6🔥',
+    '4': '&b💎',
+    '5': '&c🚨',
+    '6': '&#11CCBFF⚡',
+    '7': '&#FFE600⭐',
+    '8': '&#DBFEFF❄',
+    '9': '&#FFB700☀',
+    '10': '&#DA4DFF☄',
+    '11': '&#78D67E✈',
+    '12': '&#8DA6F0⌚'
+  };
+
+  return map[input] || input;
+}
+
+function broadcast(symbol, text) {
+  const formatted = `&8[${symbol}&8]&f ${text}`;
+  bot.chat(`/me ${formatted}`);
+}
+
+function startBroadcast(symbol, text, intervalSec) {
+  stopBroadcast();
+
+  broadcast(symbol, text);
+
+  if (Number.isFinite(intervalSec) && intervalSec > 0) {
+    broadcastInterval = setInterval(() => {
+      broadcast(symbol, text);
+    }, intervalSec * 1000);
+  }
+}
+
+function stopBroadcast() {
+  if (broadcastInterval) {
+    clearInterval(broadcastInterval);
+    broadcastInterval = null;
+  }
+}
+
 async function processUserCommand(realUsername, message, source = 'mc', originalSender = null, parsed) {
   const isConsole = realUsername === 'SYSTEM';
   const originalCasedUsername = isConsole ? 'SYSTEM' : resolveUsername(realUsername);
   const displayName = source === 'discord' && originalSender ? originalSender : originalCasedUsername;
 
   if (realUsername === 'Unknown Player') return;
+
+  if (config.killswitch && source !== 'discord') return;
 
   const bannedRunCommands = [
     '/sphere', '/cyl', '/hcyl', '/walls', '/set', '/faces', '/overlay',
@@ -1384,7 +1401,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   const parts = trimmed.split(/\s+/);
   const cmd = parts[0].toLowerCase().replace(config.botprefix, '');
 
-  if (source === 'discord' && discordBlockedCommands.includes(cmd)) {
+  if (source === 'discord' && discordBlockedCommands.includes(cmd) && !(cmd === 'balance' && parts[1]?.toLowerCase() === 'withdraw' && parts[2]?.toLowerCase() === 'requests')) {
     await outputToDiscord(`${t('bot.cmd.discordblocked', { prefix: config.botprefix, cmd })}`);
     return;
   }
@@ -2084,6 +2101,29 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           break;
         }
 
+        if (sub === 'requests') {
+
+          if (source === 'mc') await bot.chat(`/m ${username} ${t('bot.cmd.balance.withdraw_requestsonlydiscord')}`);
+
+          if (!withdrawRequests.size) {
+            await outputToDiscord(`${t('bot.cmd.balance.withdraw_noactiverequests')}`);
+            break;
+          }
+
+          let discordList = [];
+
+          for (const [nick, data] of withdrawRequests.entries()) {
+            const formattedAmount = data.amount.toLocaleString('de-DE');
+            discordList.push(`• ${nick} - ${formattedAmount}⛃`);
+          }
+
+          await outputToDiscord(
+            `${t('bot.cmd.balance.withdraw_activerequests')}:\n` +
+            discordList.join('\n')
+          );
+
+          break;
+        }
 
         const amount = parseInt(parts[2], 10);
         if (isNaN(amount) || amount <= 0) {
@@ -2237,7 +2277,6 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       const subcmd = parts[1]?.toLowerCase();
       const itemId = parts[2]?.toLowerCase();
       const buyer = realUsername;
-      const oneTimeItems = ['rape'];
 
       if (!shop || !Array.isArray(shop)) {
         await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.unavailable')}`);
@@ -2245,7 +2284,16 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       }
 
       if (!subcmd) {
-        const list = shop.map(i => `&e${i.name} &8(&6${i.price.toLocaleString('de-DE')}⛃&8)`).join('&e, ');
+        const list = shop.map(i => {
+          const pricePart = `&8(&6${i.price.toLocaleString('de-DE')}⛃&8)`;
+          if (typeof i.stock === 'number') {
+            if (i.stock <= 0) {
+              return `&7&m${i.name}&r &8[&c✘&8]`;
+            }
+            return `&e${i.name} ${pricePart} &8[&6${i.stock}⏹&8]`;
+          }
+          return `&e${i.name} ${pricePart}`;
+        }).join('&e, ');
         await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.list', { list })}`);
         return;
       }
@@ -2256,7 +2304,18 @@ async function processUserCommand(realUsername, message, source = 'mc', original
           return;
         }
 
-        const item = shop.find(i => i.id.toLowerCase() === itemId || i.name.toLowerCase() === itemId);
+        const amountArg = parts[3];
+        let amount = 1;
+
+        if (amountArg && Number.isFinite(Number(amountArg))) {
+          amount = Math.max(1, parseInt(amountArg));
+        }
+
+        const item = shop.find(i =>
+          i.id.toLowerCase() === itemId ||
+          i.name.toLowerCase() === itemId
+        );
+
         if (!item) {
           await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.not_found', { item: itemId })}`);
           return;
@@ -2264,36 +2323,67 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
         const itemKey = item.id.toLowerCase();
 
-        if (oneTimeItems.includes(itemKey)) {
+        if (typeof item.stock === 'number') {
+
+          if (item.stock <= 0) {
+            await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.soldout')}`);
+            return;
+          }
+
+          if (amount > item.stock) {
+            await bot.chat(`/m ${displayName} ❌ ${t('bot.cmd.shop.availableonly', { item: item.stock })}`);
+            return;
+          }
+        }
+
+        if (item.oneTime) {
+          amount = 1;
+
           if (!purchases[buyer]) purchases[buyer] = [];
+
           if (purchases[buyer].includes(itemKey)) {
             await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.already_bought', { item: item.name })}`);
             return;
           }
         }
 
+        const totalPrice = item.price * amount;
         const bal = getBalance(buyer);
-        if (bal < item.price) {
-          await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.not_enough', { item: item.name, price: item.price.toLocaleString('de-DE') })}`);
+
+        if (bal < totalPrice) {
+          await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.not_enough', {
+            item: item.name,
+            price: totalPrice.toLocaleString('de-DE')
+          })}`);
           return;
         }
 
-        changeBalance(buyer, -item.price);
+        changeBalance(buyer, -totalPrice);
 
-        if (oneTimeItems.includes(itemKey)) {
+        if (typeof item.stock === 'number') {
+          item.stock -= amount;
+          saveShop();
+        }
+
+        if (item.oneTime) {
+          if (!purchases[buyer]) purchases[buyer] = [];
           purchases[buyer].push(itemKey);
           savePurchases();
         }
 
         if (item.command) {
-          const commandToRun = item.command.replace('{player}', originalCasedUsername);
-          await bot.chat(commandToRun);
+          for (let i = 0; i < amount; i++) {
+            const commandToRun = item.command.replace('{player}', originalCasedUsername);
+            await bot.chat(commandToRun);
+          }
         }
 
-        await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.success', { item: item.name, price: item.price.toLocaleString('de-DE') })}`);
-      } else {
-        await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.invalid_sub', { prefix: config.botprefix })}`);
+        await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.success', { item: item.name, price: totalPrice.toLocaleString('de-DE'), amount })}`);
+
+        return;
       }
+
+      await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.invalid_sub', { prefix: config.botprefix })}`);
       break;
     }
 
@@ -2459,7 +2549,9 @@ async function processUserCommand(realUsername, message, source = 'mc', original
         minwithdraw: t('bot.cmd.config.minwithdraw'),
         mindeposit: t('bot.cmd.config.mindeposit'),
         minbet: t('bot.cmd.config.minbet'),
-        minwithdrawconfirm: t('bot.cmd.config.minwithdrawconfirm')
+        minwithdrawconfirm: t('bot.cmd.config.minwithdrawconfirm'),
+        killswitch: t('bot.cmd.config.killswitch'),
+        disablewithdraw: t('bot.cmd.config.disablewithdraw')
       };
 
       const hiddenParams = ['host', 'port', 'botnick'];
@@ -2799,6 +2891,45 @@ async function processUserCommand(realUsername, message, source = 'mc', original
       break;
     }
 
+    case 'broadcast': {
+
+      if (source === 'mc') return;
+
+      const sub = parts[1]?.toLowerCase();
+
+      if (sub === 'stop') {
+        stopBroadcast();
+        await outputToDiscord(t('bot.cmd.broadcast.stopped'));
+        return;
+      }
+
+      if (parts.length < 3) {
+        await outputToDiscord(t('bot.cmd.broadcast.usage', { prefix: config.botprefix }));
+        return;
+      }
+
+      const symbolInput = parts[1];
+      const symbol = getSymbol(symbolInput);
+
+      let interval = null;
+      const lastArg = parts[parts.length - 1];
+
+      const parsed = Number(lastArg);
+
+      if (Number.isFinite(parsed) && parsed > 0) {
+        interval = parsed;
+        parts.pop();
+      }
+
+      const text = parts.slice(2).join(' ');
+
+      startBroadcast(symbol, text, interval);
+
+      await outputToDiscord(t('bot.cmd.broadcast.started', { symbol: symbol.replace(/&[a-f0-9]/gi, ''), interval: interval ?? t('bot.cmd.broadcast.norepeat') }));
+
+      break;
+    }
+
     default: {
       if (source === 'mc') {
         await bot.chat(`/m ${displayName} &c${t('bot.unknowncmd', { cmd: config.botprefix + cmd })}`);
@@ -2852,9 +2983,21 @@ bot.on('playerLeft', (player) => {
 
 const pendingRealnames = new Map();
 
+bot.on('title', json => {
+  const parsed = parseColoredText(json, mclang);
+  console.log('Title:', parsed);
+});
+
+bot.on('actionBar', json => {
+  const parsed = parseColoredText(json, mclang);
+  console.log('ActionBar:', parsed);
+});
+
 bot.on('message', async (jsonMsg) => {
-  const parsed = (parseFormattedMessage(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xrl]/gi, '');
-  const colored = (parseColoredText(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xrl]/gi, '');
+  const parsed = jsonMsg.toString();
+  const colored = (parseColoredText(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg) + '').replace(/§[xr]/gi, '');
+  const translateKey = jsonMsg.json?.translate || jsonMsg?.translate;
+  if (translateKey === 'sleep.players_sleeping') return;
   if (parsed) console.log(colored);
 
   const arrowSymbol = '⇨'
@@ -2884,6 +3027,8 @@ bot.on('message', async (jsonMsg) => {
     let username = moneymatch[2].trim();
     if (money === 0) return;
 
+    if (config.killswitch) return;
+
     if (await isBlacklisted(username)) return;
 
     if (username.startsWith('~')) {
@@ -2911,8 +3056,7 @@ bot.on('message', async (jsonMsg) => {
   }
 
   if (pendingDiscordRun) {
-    const cleanText = parseFormattedMessage(jsonMsg.json || jsonMsg);
-    if (cleanText?.trim()) collectedRunOutput.push(cleanText.trim());
+    if (parsed?.trim()) collectedRunOutput.push(parsed.trim());
     if (runTimeout) clearTimeout(runTimeout);
     runTimeout = setTimeout(async () => {
       if (collectedRunOutput.length > 0) {
@@ -2938,7 +3082,7 @@ bot.on('message', async (jsonMsg) => {
 
       if (data.coins) {
         if (realNick === 'Unknown Player') return;
-		
+
         if (data.coins < config.mindeposit) {
           bot.chat(`/m ${realNick} ${t('bot.mindeposit', { min: config.mindeposit })}`);
           bot.chat(`/pay ${realNick} ${data.coins}`);

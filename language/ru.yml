@@ -194,6 +194,10 @@ bot:
       withdraw_notifysendrequest: "{username} отправил запрос на вывод {amount}⛃\nПодтвердите или отклоните запрос в игре! ({prefix}balance withdraw confirm/decline {username})"
       withdraw_notifydone: "{username} вывел {amount}⛃"
       withdraw_min: "&cМинимальная сумма вывода: &6{min}⛃"
+      withdraw_requestsonlydiscord: "&cВ игре нельзя просмотреть запросы."
+      withdraw_noactiverequests: "Активных запросов на вывод нет."
+      withdraw_activerequests: "Активные запросы на вывод"
+      withdraw_disabled: "&cВыводы отключены."
     eco:
       usage: "&aИспользуйте: &e{prefix}eco &agive&8/&ctake/&eset &8<&eник/ID&8> &8<&aсумма&8>"
       usagedc: "Используйте: {prefix}eco give/take <ник/ID> <сумма>"
@@ -217,6 +221,8 @@ bot:
       not_enough: "&cНедостаточно монет для покупки &e{item} &8(&6{price}⛃&8)."
       success: '&aВы купили &e"{item}"&a за &e{price}⛃.'
       invalid_sub: "&cНеизвестная подкоманда магазина. Используйте: &e{prefix}shop buy"
+      soldout: "&cТовар распродан."
+      availableonly: "&cДоступно только &6{item} &cшт."
     code:
       no_code: "&aУкажите код: &e{prefix}code &8<&cкод&8>"
       not_found: "&cКод &e{code} &cне найден."
@@ -256,6 +262,8 @@ bot:
       mindeposit: "Минимальное пополнение"
       minbet: "Минимальная ставка"
       minwithdrawconfirm: "Минимальный вывод для отправки запроса на подтверждение"
+      killswitch: "Выключить функционал бота"
+      disablewithdraw: "Отключить вывод"
     role:
       usagedc: |
         Использование:
@@ -310,13 +318,18 @@ bot:
         tie_broadcast: "&e{user} &6сыграл в ничью &8| &aИгра: &dBlackJack"
         defeat_broadcast: "&e{user} &cпроиграл &6{bet}⛃ &8| &aИгра: &dBlackJack"
         dealer: "&eДилер:"
+    broadcast:
+       usage: "Использование {prefix}broadcast <символ> <текст> [интервал]"
+       stopped: "Оповещение остановлено."
+       started: "Опоповещение запущено.\nСимвол: {symbol}\nИнтервал: {interval} сек."
+       norepeat: "без повтора"
   yes: "Да"
   no: "Нет"
   unknowncmd: "Неизвестная команда: {cmd}"
   deposit: "&aВы пополнили свой баланс на &6{amount}⛃"
   notifydeposit: "{username} пополнил свой баланс на {amount}⛃"
   mindeposit: "&cМинимальное пополнение: &6{min}⛃ &8| &cВаши деньги возвращены."
-  
+
 # Другое
 other:
   bot:

@@ -194,6 +194,10 @@ bot:
       withdraw_notifysendrequest: "{username} 发送了提现请求 {amount}⛃\n请在游戏中确认或拒绝该请求！({prefix}balance withdraw confirm/decline {username})"
       withdraw_notifydone: "{username} 提取了 {amount}⛃"
       withdraw_min: "&c最低提现金额：&6{min}⛃"
+      withdraw_requestsonlydiscord: "&c无法在游戏中查看请求。"
+      withdraw_noactiverequests: "没有活跃的提现请求。"
+      withdraw_activerequests: "活跃的提现请求"
+      withdraw_disabled: "&c提现已被禁用。"
     eco:
       usage: "&a使用：&e{prefix}eco &a给予&8/&c扣除/&e设置 &8<&e昵称/ID&8> &8<&a金额&8>"
       usagedc: "使用：{prefix}eco 给予/扣除 <昵称/ID> <金额>"
@@ -217,6 +221,8 @@ bot:
       not_enough: "&c硬币不足，无法购买 &e{item} &8(&6{price}⛃&8)。"
       success: '&a您花费 &e{price}⛃ &a购买了 &e"{item}"。'
       invalid_sub: "&c未知的商店子命令。使用：&e{prefix}shop buy"
+      soldout: "&c商品已售罄。"
+      availableonly: "&c仅提供 &6{item} &c件。"
     code:
       no_code: "&a请指定代码：&e{prefix}code &8<&c代码&8>"
       not_found: "&c代码 &e{code} &c未找到。"
@@ -256,6 +262,8 @@ bot:
       mindeposit: "最低存款"
       minbet: "最低下注"
       minwithdrawconfirm: "发送确认请求的最低提现金额"
+      killswitch: "关闭机器人功能"
+      disablewithdraw: "禁用提现"
     role:
       usagedc: |
         使用方法：
@@ -310,6 +318,11 @@ bot:
         tie_broadcast: "&e{user} &6平局 &8| &a游戏：&d二十一点"
         defeat_broadcast: "&e{user} &c输了 &6{bet}⛃ &8| &a游戏：&d二十一点"
         dealer: "&e庄家："
+    broadcast:
+      usage: "使用 {prefix}broadcast <符号> <文本> [间隔]"
+      stopped: "公告已停止。"
+      started: "公告已开始。\n符号: {symbol}\n间隔: {interval} 秒。"
+      norepeat: "不重复"
   yes: "是"
   no: "否"
   unknowncmd: "未知命令：{cmd}"
