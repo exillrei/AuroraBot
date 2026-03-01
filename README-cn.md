@@ -10,7 +10,8 @@
  **4.** 聊天游戏  
  **5.** 通过 Discord 远程管理  
  **6.** 本地化。支持语言：ru, en, cn  
- **7.** 赌场系统
+ **7.** 赌场系统  
+ **8.** 插件系统
 
 ## 🛠️ 安装步骤
 
@@ -49,14 +50,17 @@ feedback - 机器人评价反馈
 pay - 向其他玩家转账硬币  
 code - 兑换码  
 bcode - 兑换码通知  
-casino - 赌场系统
-bj - 21点
+casino - 赌场系统  
+bj - 21点  
+plugin - 插件管理  
+plugins - 插件列表
 
 > [!NOTE]
-> 使用 restart 指令需要安装 **PM2** > **PM2** 安装指令：  
-> ```npm install pm2```  
+> 使用 restart 指令需要安装 **PM2**  
+> **PM2** 安装指令：  
+> ```npm install pm2 -g```  
 > 通过 **PM2** 启动机器人：  
 > ```pm2 start ecosystem.config.cjs```  
 
 > [!NOTE]
-> 请记得根据你的需求修改 **main.js** 和 **.env** 文件
+> 不要忘记根据自己的需求编辑 **main.js (标记 /* Change ... */)**、**.env** 和 **机器人设置（settings 文件夹）**

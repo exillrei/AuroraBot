@@ -1,0 +1,8 @@
+{
+  "name": "example",
+  "display": "Example Plugin",
+  "version": "1.0.0",
+  "author": "exillrei",
+  "description": "Example Plugin",
+  "main": "example.js"
+}

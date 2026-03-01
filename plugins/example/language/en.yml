@@ -1,0 +1,9 @@
+plugin:
+  enabled: 'Enabled'
+  disabled: 'Disabled'
+  language:
+    updated: 'Language updated:'
+    failedreload: 'Failed to reload'
+  cmd:
+    mchello: "&6Hello, &e{name}"
+    dchello: "Hello, {name}"

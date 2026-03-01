@@ -13,6 +13,7 @@ What features are in the bot?:
  **5.** Bot management via Discord  
  **6.** Localization. Available languages: ru, en, cn  
  **7.** Casino system  
+ **8.** Plugin system
 
 ## 🛠️ Installation
 
@@ -53,12 +54,15 @@ code - Codes
 bcode - Code notification  
 casino - Casino system
 bj - BlackJack  
+plugin - Plugin management  
+plugins - List of plugins
 
 > [!NOTE]
-> The restart command requires **PM2** > **PM2** installation:  
-> ```npm install pm2```  
+> The restart command requires **PM2**  
+> **PM2** installation:  
+> ```npm install pm2 -g```  
 > Starting the bot via **PM2**:  
 > ```pm2 start ecosystem.config.cjs```  
 
 > [!NOTE]
-> Don't forget to edit **main.js** and **.env** for yourself
+> Don't forget to edit **main.js (marked /* Change ... */)**, **.env**, and **bot settings (settings folder)** for yourself

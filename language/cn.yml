@@ -68,8 +68,14 @@ bot:
   testmode: "机器人正在测试中，请稍候！"
   usernotfound: "&c玩家 &e{user} &c未找到！"
   usernotfounddc: "玩家 {user} 未找到！"
+  banned: "&7已封禁: {ban}"
+  unspecified: "未指定"
+  usual: "普通"
   cmd:
+    error_occured: "命令 {cmd} 出错"
     noperm: "&c您无权访问"
+    notfound: "&c命令 &e{prefix}{cmd} 未找到。"
+    notfounddc: "命令 {prefix}{cmd} 未找到。"
     descriptions:
       help: "显示可用命令列表"
       msg: "从机器人向聊天发送消息"
@@ -88,7 +94,7 @@ bot:
       config: "机器人设置"
     availablecmds: "&a您可用的命令："
     discordblocked: "命令 {prefix}{cmd} 无法通过 Discord 使用。"
-    info: "&a机器人创建者：&#FF5500🔥 exillrei 🔥 &8| &a命令列表：&e{prefix}help &8| &a与AI聊天：&#00FF89bot，您的文本 &8| &a机器人运行时间：&#009EFF{uptime} ⌚ &8| &a您：{role}"
+    info: "&a机器人创建者：&#FF5500🔥 exillrei 🔥 &8| &a命令列表：&e{prefix}help &8| &a与AI聊天：&#00FF89bot，您的文本 &8| &a机器人运行时间：&#009EFF{uptime} ⌚"
     info_dc:
       info: "信息"    
       creator: "👤 机器人创建者："
@@ -137,6 +143,8 @@ bot:
       added_dc: "您已将玩家 {user} 添加到黑名单。"
       removed_mc: "&e{by} &a已将玩家 &e{user} &a从黑名单移除"
       removed_dc: "您已将玩家 {user} 从黑名单移除。"
+      owner: "所有者"
+      moder: "管理员"
     ban:
       usage: "&a使用：&e{prefix}ban &8<&e昵称/ID&8> &8<&b时间&8> &8<&a原因&8>"
       usagedc: "使用：{prefix}ban <昵称/ID> <时间> <原因>"
@@ -144,6 +152,9 @@ bot:
       bad_time: "时间格式无效。"
       success_mc: "&e{by} &a封禁了 &e{user} &a时长 &e{time} &8| &a原因：&e{reason}"
       success_dc: "您封禁了 {user}，时长 {time} | 原因：{reason}"
+      noreason: "无原因"
+      owner: "所有者"
+      moder: "管理员"
     unban:
       usage: "&a使用：&e{prefix}unban &8<&e昵称/ID&8>"
       usagedc: "使用：{prefix}unban <昵称/ID>"
@@ -219,7 +230,7 @@ bot:
       not_found: '&c商品 &e"{item}"&c 未找到。'
       already_bought: '&c您已经购买过 &e"{item}"&c，无法再次购买。'
       not_enough: "&c硬币不足，无法购买 &e{item} &8(&6{price}⛃&8)。"
-      success: '&a您花费 &e{price}⛃ &a购买了 &e"{item}"。'
+      success: '&a您花费 &6{price}⛃ &a购买了 &e"{item}"。'
       invalid_sub: "&c未知的商店子命令。使用：&e{prefix}shop buy"
       soldout: "&c商品已售罄。"
       availableonly: "&c仅提供 &6{item} &c件。"
@@ -229,6 +240,8 @@ bot:
       already_used: "&c您已使用过此代码。"
       limit_reached: "&c此代码的使用次数已达上限。"
       activated_money: "&a代码已激活！您获得了：&6{amount}⛃"
+      botcmd: "机器人命令"
+      unknown: "未知"
     bcode:
       no_code: "&c请指定代码：&e{prefix}bcode &8<&c代码&8>"
       not_found: "&c代码 &e{code} &c未找到。"
@@ -319,10 +332,27 @@ bot:
         defeat_broadcast: "&e{user} &c输了 &6{bet}⛃ &8| &a游戏：&d二十一点"
         dealer: "&e庄家："
     broadcast:
-      usage: "使用 {prefix}broadcast <符号> <文本> [间隔]"
+      usage: "使用： {prefix}broadcast <符号> <文本> [间隔]"
       stopped: "公告已停止。"
       started: "公告已开始。\n符号: {symbol}\n间隔: {interval} 秒。"
       norepeat: "不重复"
+    plugin:
+      usage: "用法: {prefix}plugin <enable|disable|reload|info> <插件>"
+      notfound: "未找到插件 {plugin}"
+      enabled: "插件 {plugin} 已启用"
+      loadedandenabled: "插件 {plugin} 已加载并启用"
+      disabled: "插件 {plugin} 已禁用"
+      reloaded: "插件 {plugin} 已重新加载"
+      info: "插件: {plugin}\n版本: {version}\n作者: {author}\n描述: {desc}\n激活: {active}\n命令: {cmds}"
+      noversion: "未指定"
+      noauthor: "未指定"
+      nodesc: "无描述"
+      invalidsubcmd: "无效的子命令"
+      error: "发生错误"
+      pluginerror: "管理插件时出错"
+    plugins:
+      noactive: "没有激活的插件"
+      plugins: "插件"
   yes: "是"
   no: "否"
   unknowncmd: "未知命令：{cmd}"
@@ -336,7 +366,7 @@ other:
     prefix: "[机器人]"
     logged: "已登录游戏"
     cmdgames: "已登录，发送 /games..."
-    end: "已退出游戏 | 原因："
+    end: "已退出游戏 | 原因"
   player:
     join: "玩家 **`{username}`** 加入了游戏。"
     left: "玩家 **`{username}`** 离开了游戏。"

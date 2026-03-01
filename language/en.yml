@@ -1,13 +1,13 @@
 # Errors
 errors:
   ai_api_key_missing: "❌ Error: AI_API_KEY variable is not set in .env"
-  
+
 # Update check
 update:
   available: "New version available:"
   yourversion: "Your version:"
   newupdate: "New update"
-  
+
 # Discord
 discord:
   bot_logged_in: "Bot logged in as {tag}"
@@ -68,8 +68,14 @@ bot:
   testmode: "Bot testing in progress, please wait!"
   usernotfound: "&cPlayer &e{user} &cnot found!"
   usernotfounddc: "Player {user} not found!"
+  banned: "&7Banned: {ban}"
+  unspecified: "Not specified"
+  usual: "Normal"
   cmd:
+    error_occured: "Command {cmd} error occurred"
     noperm: "&cYou don't have access to"
+    notfound: "&cCommand &e{prefix}{cmd} not found."
+    notfounddc: "Command {prefix}{cmd} not found."
     descriptions:
       help: "Shows list of available commands"
       msg: "Sends a message to chat from the bot"
@@ -88,9 +94,9 @@ bot:
       config: "Bot settings"
     availablecmds: "&aYour available commands:"
     discordblocked: "Command {prefix}{cmd} is not available via Discord."
-    info: "&aBot creator: &#FF5500🔥 exillrei 🔥 &8| &aCommands list: &e{prefix}help &8| &aChat with AI: &#00FF89bot, your text &8| &aBot uptime: &#009EFF{uptime} ⌚ &8| &aYou: {role}"
+    info: "&aBot creator: &#FF5500🔥 exillrei 🔥 &8| &aCommands list: &e{prefix}help &8| &aChat with AI: &#00FF89bot, your text &8| &aBot uptime: &#009EFF{uptime} ⌚"
     info_dc:
-      info: "Information"    
+      info: "Information"
       creator: "👤 Bot creator:"
       help: "🔧 Commands list:"
       uptime: "⌚ Bot uptime:"
@@ -104,7 +110,7 @@ bot:
     run:
       nocmds: "Bot commands are prohibited in {prefix}run."
       blockedcmd: "This command is prohibited."
-      nomsg: "Command \"{cmd}\" returned no messages."
+      nomsg: 'Command "{cmd}" returned no messages.'
       executing: "Executing command"
       command: "Command: /{command}"
     exit:
@@ -137,6 +143,8 @@ bot:
       added_dc: "You added player {user} to blacklist."
       removed_mc: "&e{by} &aremoved player &e{user} &afrom blacklist"
       removed_dc: "You removed player {user} from blacklist."
+      owner: "owner"
+      moder: "moderator"
     ban:
       usage: "&aUse: &e{prefix}ban &8<&e nick/ID&8> &8<&b time&8> &8<&a reason&8>"
       usagedc: "Use: {prefix}ban <nick/ID> <time> <reason>"
@@ -144,6 +152,9 @@ bot:
       bad_time: "Invalid time format."
       success_mc: "&e{by} &abanned &e{user} &afor &e{time} &8| &aReason: &e{reason}"
       success_dc: "You banned {user} for {time} | Reason: {reason}"
+      noreason: "No reason"
+      owner: "owner"
+      moder: "moderator"
     unban:
       usage: "&aUse: &e{prefix}unban &8<&e nick/ID&8>"
       usagedc: "Use: {prefix}unban <nick/ID>"
@@ -219,7 +230,7 @@ bot:
       not_found: '&cItem &e"{item}"&c not found.'
       already_bought: '&cYou have already bought &e"{item}"&c and cannot buy it again.'
       not_enough: "&cNot enough coins to buy &e{item} &8(&6{price}⛃&8)."
-      success: '&aYou bought &e"{item}"&a for &e{price}⛃.'
+      success: '&aYou bought &e"{item}"&a for &6{price}⛃.'
       invalid_sub: "&cUnknown shop subcommand. Use: &e{prefix}shop buy"
       soldout: "&cItem sold out."
       availableonly: "&cAvailable only &6{item} &cpcs."
@@ -229,6 +240,8 @@ bot:
       already_used: "&cYou have already used this code."
       limit_reached: "&cUsage limit for this code has been reached."
       activated_money: "&aCode activated! You received: &6{amount}⛃"
+      botcmd: "bot command"
+      unknown: "unknown"
     bcode:
       no_code: "&cSpecify code: &e{prefix}bcode &8<&c code&8>"
       not_found: "&cCode &e{code} &cnot found."
@@ -319,24 +332,41 @@ bot:
         defeat_broadcast: "&e{user} &clost &6{bet}⛃ &8| &aGame: &dBlackJack"
         dealer: "&eDealer:"
     broadcast:
-      usage: "Usage {prefix}broadcast <symbol> <text> [interval]"
+      usage: "Usage: {prefix}broadcast <symbol> <text> [interval]"
       stopped: "Broadcast stopped."
       started: "Broadcast started.\nSymbol: {symbol}\nInterval: {interval} sec."
       norepeat: "no repeat"
+    plugin:
+      usage: "Usage: {prefix}plugin <enable|disable|reload|info> <plugin>"
+      notfound: "Plugin {plugin} not found"
+      enabled: "Plugin {plugin} enabled"
+      loadedandenabled: "Plugin {plugin} loaded and enabled"
+      disabled: "Plugin {plugin} disabled"
+      reloaded: "Plugin {plugin} reloaded"
+      info: "Plugin: {plugin}\nVersion: {version}\nAuthor: {author}\nDescription: {desc}\nActive: {active}\nCommands: {cmds}"
+      noversion: "not specified"
+      noauthor: "not specified"
+      nodesc: "no description"
+      invalidsubcmd: "Invalid subcommand"
+      error: "An error occurred"
+      pluginerror: "Error managing plugin"
+    plugins:
+      noactive: "No active plugins"
+      plugins: "Plugins"
   yes: "Yes"
   no: "No"
   unknowncmd: "Unknown command: {cmd}"
   deposit: "&aYou deposited &6{amount}⛃ &ato your balance"
   notifydeposit: "{username} deposited {amount}⛃ to their balance"
   mindeposit: "&cMinimum deposit: &6{min}⛃ &8| &cYour money has been returned."
-  
+
 # Other
 other:
   bot:
     prefix: "[Bot]"
     logged: "Logged in"
     cmdgames: "Logged in, sending /games..."
-    end: "Logged out | Reason:"
+    end: "Logged out | Reason"
   player:
     join: "Player **`{username}`** joined."
     left: "Player **`{username}`** left."

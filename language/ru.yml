@@ -68,8 +68,14 @@ bot:
   testmode: "Идёт тестирование бота, подождите!"
   usernotfound: "&cИгрок &e{user} &cне найден!"
   usernotfounddc: "Игрок {user} не найден!"
+  banned: "&7Забанен: {ban}"
+  unspecified: "Не указан"
+  usual: "Обычный"
   cmd:
+    error_occured: "Ошибка команды {cmd}"
     noperm: "&cУ вас нет доступа к"
+    notfound: "&cКоманда &e{prefix}{cmd} не найдена."
+    notfounddc: "Команда {prefix}{cmd} не найдена."
     descriptions:
       help: "Показывает список доступных команд"
       msg: "Отправляет сообщение в чат от имени бота"
@@ -86,9 +92,10 @@ bot:
       list: "Список игроков на сервере"
       spammer: "Спам сообщениями/командами"
       config: "Настройки бота"
+      broadcast: "Оповещение"
     availablecmds: "&aТвои доступные команды:"
     discordblocked: "Команда {prefix}{cmd} недоступна через Discord."
-    info: "&aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e{prefix}help &8| &aОбщение с нейросетью: &#00FF89бот, ваш текст &8| &aАптайм бота: &#009EFF{uptime} ⌚ &8| &aВы: {role}"
+    info: "&aСоздатель бота: &#FF5500🔥 exillrei 🔥 &8| &aСписок команд: &e{prefix}help &8| &aОбщение с нейросетью: &#00FF89хомяк, ваш текст &8| &aАптайм бота: &#009EFF{uptime} ⌚"
     info_dc:
       info: "Информация"    
       creator: "👤 Создатель бота:"
@@ -137,6 +144,8 @@ bot:
       added_dc: "Вы добавили игрока {user} в чёрный список."
       removed_mc: "&e{by} &aубрал с чёрного списка игрока &e{user}"
       removed_dc: "Вы убрали игрока {user} из чёрного списка."
+      owner: "владельца"
+      moder: "модера"
     ban:
       usage: "&aИспользуйте: &e{prefix}ban &8<&eник/ID&8> &8<&bвремя&8> &8<&aпричина&8>"
       usagedc: "Используйте: {prefix}ban <ник/ID> <время> <причина>"
@@ -144,6 +153,9 @@ bot:
       bad_time: "Неверный формат времени."
       success_mc: "&e{by} &aзаблокировал &e{user} &aна &e{time} &8| &aПричина: &e{reason}"
       success_dc: "Вы заблокировали {user} на {time} | Причина: {reason}"
+      noreason: "Без причины"
+      owner: "владельца"
+      moder: "модера"
     unban:
       usage: "&aИспользуйте: &e{prefix}unban &8<&eник/ID&8>"
       usagedc: "Используйте: {prefix}unban <ник/ID>"
@@ -219,7 +231,7 @@ bot:
       not_found: '&cТовар &e"{item}"&c не найден.'
       already_bought: '&cТы уже покупал &e"{item}"&c и не можешь купить его снова.'
       not_enough: "&cНедостаточно монет для покупки &e{item} &8(&6{price}⛃&8)."
-      success: '&aВы купили &e"{item}"&a за &e{price}⛃.'
+      success: '&aВы купили &e"{item}"&a за &6{price}⛃.'
       invalid_sub: "&cНеизвестная подкоманда магазина. Используйте: &e{prefix}shop buy"
       soldout: "&cТовар распродан."
       availableonly: "&cДоступно только &6{item} &cшт."
@@ -229,6 +241,8 @@ bot:
       already_used: "&cВы уже использовали этот код."
       limit_reached: "&cЛимит использования этого кода исчерпан."
       activated_money: "&aКод активирован! Вы получили: &6{amount}⛃"
+      botcmd: "команда бота"
+      unknown: "неизвестно"
     bcode:
       no_code: "&cУкажите код: &e{prefix}bcode &8<&cкод&8>"
       not_found: "&cКод &e{code} &cне найден."
@@ -319,24 +333,41 @@ bot:
         defeat_broadcast: "&e{user} &cпроиграл &6{bet}⛃ &8| &aИгра: &dBlackJack"
         dealer: "&eДилер:"
     broadcast:
-       usage: "Использование {prefix}broadcast <символ> <текст> [интервал]"
+       usage: "Использование: {prefix}broadcast <символ> <текст> [интервал]"
        stopped: "Оповещение остановлено."
        started: "Опоповещение запущено.\nСимвол: {symbol}\nИнтервал: {interval} сек."
        norepeat: "без повтора"
+    plugin:
+       usage: "Использование: {prefix}plugin <enable|disable|reload|info> <плагин>"
+       notfound: "Плагин {plugin} не найден"
+       enabled: "Плагин {plugin} включён"
+       loadedandenabled: "Плагин {plugin} загружен и включён"
+       disabled: "Плагин {plugin} отключён"
+       reloaded: "Плагин {plugin} перезагружен"
+       info: "Плагин: {plugin}\nВерсия: {version}\nАвтор: {author}\nОписание: {desc}\nАктивен: {active}\nКоманды: {cmds}"
+       noversion: "не указана"
+       noauthor: "не указан"
+       nodesc: "нет описания"
+       invalidsubcmd: "Неверная подкоманда"
+       error: "Произошла ошибка"
+       pluginerror: "Ошибка при управлении плагином"
+    plugins:
+       noactive: "Нет активных плагинов"
+       plugins: "Плагины"
   yes: "Да"
   no: "Нет"
   unknowncmd: "Неизвестная команда: {cmd}"
   deposit: "&aВы пополнили свой баланс на &6{amount}⛃"
   notifydeposit: "{username} пополнил свой баланс на {amount}⛃"
   mindeposit: "&cМинимальное пополнение: &6{min}⛃ &8| &cВаши деньги возвращены."
-
+  
 # Другое
 other:
   bot:
     prefix: "[Бот]"
     logged: "Вошёл в игру"
     cmdgames: "Вошёл, отправляю /games..."
-    end: "Вышел из игры | Причина:"
+    end: "Вышел из игры | Причина"
   player:
     join: "Игрок **`{username}`** зашёл."
     left: "Игрок **`{username}`** вышел."

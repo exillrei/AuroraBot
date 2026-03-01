@@ -13,3 +13,46 @@ minbet: 10000
 minwithdrawconfirm: 10000
 killswitch: true
 disablewithdraw: false
+discord:
+  roleid: 'Your Role ID'
+ai:
+  model: 'Your Model'
+  content: 'Your Content'
+
+bannedRunCommands:
+  - /sphere
+  - /cyl
+  - /hcyl
+  - /walls
+  - /set
+  - /faces
+  - /overlay
+  - /hsphere
+  - /pyramid
+  - /hpyramid
+  - /outline
+  - /replacenear
+  - /replace
+  - /removenear
+  - /frb
+  - /snow
+  - hub
+discordBlockedCommands:
+  - pay
+  - balance
+  - feedback
+  - code
+  - bcode
+  - shop
+  - casino
+  - bj
+alwaysAllowed:
+  - help
+  - info
+  - feedback
+  - balance
+  - pay
+  - shop
+  - code
+  - casino
+  - bj
