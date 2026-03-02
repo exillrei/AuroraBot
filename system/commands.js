@@ -1048,8 +1048,8 @@ export const commands = {
         const remaining = (codeObj.globalLimit || 0) - (codeObj.usedTotal || 0);
         let rewardInfo = '';
         switch (codeObj.action?.type) {
-            case 'money': rewardInfo = `${codeObj.action.amount || 0}⛃`; return;
-            case 'command': rewardInfo = `${t('bot.cmd.code.botcmd')}`; return;
+            case 'money': rewardInfo = `${codeObj.action.amount || 0}⛃`; break;
+            case 'command': rewardInfo = `${t('bot.cmd.code.botcmd')}`; break;
             default: rewardInfo = `${t('bot.cmd.code.unknown')}`;
         }
 
