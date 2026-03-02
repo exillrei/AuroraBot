@@ -76,7 +76,8 @@ export async function enablePlugin(name) {
       registerCommand: (cmdName, handler) => {
         pluginCommands[cmdName] = handler;
         plugin.commands.push(cmdName);
-      }
+      },
+      ...botModule
     });
   }
 
