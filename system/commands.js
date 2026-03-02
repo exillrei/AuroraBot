@@ -9,7 +9,7 @@ import chalk from 'chalk';
 import { exec } from "child_process";
 import fs from 'fs';
 import yaml from 'js-yaml';
-import { loadPlugin, disablePlugin, reloadPlugin, plugins } from './PluginManager.js';
+import { loadPlugin, disablePlugin, reloadPlugin, plugins, enablePlugin } from './PluginManager.js';
 
 const withdrawRequests = new Map();
 const activeBlackjackGames = new Map();
