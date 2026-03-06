@@ -65,4 +65,4 @@ plugins - List of plugins
 > ```pm2 start ecosystem.config.cjs```  
 
 > [!NOTE]
-> Don't forget to edit **main.js (marked /* Change ... */)**, **.env**, and **bot settings (settings folder)** for yourself
+> Don't forget to edit **main.js (marked `/* Change ... */`)**, **.env**, and **bot settings (settings folder)** for yourself
