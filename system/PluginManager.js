@@ -5,7 +5,7 @@ import * as botModule from '../main.js';
 import chalk from 'chalk';
 
 export const plugins = new Map();
-export const pluginCommands = {}; 
+export const pluginCommands = {};
 
 export async function loadPlugin(name) {
   const pluginFolder = path.join('./plugins', name);
@@ -38,6 +38,7 @@ export async function loadPlugin(name) {
     module,
     manifest,
     commands: [],
+    listeners: [],
     active: true
   };
 
@@ -46,7 +47,18 @@ export async function loadPlugin(name) {
     pluginData.commands.push(cmdName);
   }
 
-  if (module.onEnable) await module.onEnable({ registerCommand, ...botModule });
+  function registerListener(event, handler) {
+    botModule.bot.on(event, handler);
+    pluginData.listeners.push({ event, handler });
+  }
+
+  if (module.onEnable) {
+    try {
+      await module.onEnable({ registerCommand, registerListener, ...botModule });
+    } catch (err) {
+      console.error(`[PluginManager] Error in onEnable | Plugin "${name}":`, err);
+    }
+  }
 
   plugins.set(name, pluginData);
 
@@ -64,6 +76,13 @@ export async function disablePlugin(name) {
   }
 
   plugin.active = false;
+
+  for (const { event, handler } of plugin.listeners) {
+    botModule.bot.off(event, handler);
+  }
+
+  plugin.listeners = [];
+
   return true;
 }
 
@@ -76,6 +95,10 @@ export async function enablePlugin(name) {
       registerCommand: (cmdName, handler) => {
         pluginCommands[cmdName] = handler;
         plugin.commands.push(cmdName);
+      },
+      registerListener: (event, handler) => {
+        botModule.bot.on(event, handler);
+        plugin.listeners.push({ event, handler });
       },
       ...botModule
     });

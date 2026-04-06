@@ -90,7 +90,7 @@ chokidar.watch(LANG_DIR, { ignoreInitial: true }).on('change', filePath => {
     }
 });
 
-export async function onEnable({ registerCommand, bot, outputToDiscord }) {
+export async function onEnable({ registerCommand, registerListener, bot, outputToDiscord }) {
 
     console.log(chalk.hex('#ff9100')(`[ExamplePlugin] ${t('plugin.enabled')}`));
 
@@ -98,6 +98,18 @@ export async function onEnable({ registerCommand, bot, outputToDiscord }) {
         if (source === 'mc') await bot.chat(`/m ${displayName} ${t('plugin.cmd.mchello', { name: displayName })}`)
         else await outputToDiscord(t('plugin.cmd.dchello', { name: displayName }));
     });
+
+    registerListener('message', async (jsonMsg) => {
+        const text = jsonMsg.toString();
+
+        if (text.includes("test")) {
+            console.log(
+                chalk.hex('#ff6600')(`[ExamplePlugin] `) +
+                chalk.hex('#afecff')('Listener test')
+            );
+        }
+    });
+
 }
 
 export async function onDisable() {
