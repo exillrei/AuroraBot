@@ -63,4 +63,4 @@ plugins - 插件列表
 > ```pm2 start ecosystem.config.cjs```  
 
 > [!NOTE]
-> 不要忘记根据自己的需求编辑 **main.js (标记 /* Change ... */)**、**.env** 和 **机器人设置（settings 文件夹）**
+> 不要忘记根据自己的需求编辑 **main.js (标记 `/* Change ... */`)**、**.env** 和 **机器人设置（settings 文件夹）**
