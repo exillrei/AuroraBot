@@ -27,7 +27,7 @@ What features are in the bot?:
 ## 🤔 Usage
 
 Starting the bot:  
-```node bot```  
+```node main```  
 
 Bot prefix: **$**  
 Bot commands:  
