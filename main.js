@@ -1343,11 +1343,11 @@ bot.on('login', () => {
 });
 
 bot.once('spawn', async () => {
-  console.log(
-    chalk.bold.hex('#61EFFF')(t('other.bot.prefix')) + ' ' +
-    chalk.hex('#acacac')(t('other.bot.cmdgames'))
-  );
-  setTimeout(() => bot.chat('/games'), 1000);
+  if (config.gui.cmd.enable) setTimeout(() => bot.chat(`/${config.gui.cmd.cmd}`), 1000);
+  else {
+	  bot.setQuickBarSlot(config.gui.hotbar_slot)
+	  bot.activateItem()
+  }
   setTimeout(() => fullySpawned = true, 5000);
 });
 
@@ -1564,14 +1564,15 @@ bot.on('message', async (jsonMsg) => {
 });
 
 bot.once('windowOpen', (window) => {
-  const title = window.title?.value?.text?.value || 'Без названия'; /* Change "Без названия" for another word */
+  const title = window.title?.value?.text?.value;
   console.log(
     chalk.bold.hex('#FF70C3')(t('other.gui.prefix')) + ' ' +
     chalk.hex('#ffafde')(`${t('other.gui.window_opened')}: ${title}`)
   );
-
+  
   if (title.toLowerCase().includes('выбор')) { /* Change "выбор" for another word */
-    const slot = window.slots[21];
+    const slotIndex = config.gui.slot;
+    const slot = window.slots[slotIndex];
     if (slot) {
       bot.clickWindow(slot.slot, 0, 0);
       console.log(

@@ -71,6 +71,8 @@ bot:
   banned: "&7Забанен: {ban}"
   unspecified: "Не указан"
   usual: "Обычный"
+  cooldown: "&cНельзя так часто вводить команду! Подождите немного."
+  isnearby: "&cВы слишком далеко!"
   cmd:
     error_occured: "Ошибка команды {cmd}"
     noperm: "&cУ вас нет доступа к"
@@ -278,6 +280,9 @@ bot:
       minwithdrawconfirm: "Минимальный вывод для отправки запроса на подтверждение"
       killswitch: "Выключить функционал бота"
       disablewithdraw: "Отключить вывод"
+      casinocooldown: "КД Казино"
+      bjcooldown: "КД BlackJack"
+      enable_isnearby: "Включить возможность использование команд только рядом с ботом"
     role:
       usagedc: |
         Использование:
@@ -366,7 +371,6 @@ other:
   bot:
     prefix: "[Бот]"
     logged: "Вошёл в игру"
-    cmdgames: "Вошёл, отправляю /games..."
     end: "Вышел из игры | Причина"
   player:
     join: "Игрок **`{username}`** зашёл."

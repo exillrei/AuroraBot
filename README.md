@@ -1,8 +1,7 @@
 > [!NOTE]
 > govnocoded by ChatGPT
 
-[Русская версия](https://github.com/exillrei/AuroraBot/blob/main/README-ru.md)
-[中文版本](https://github.com/exillrei/AuroraBot/blob/main/README-cn.md)
+[Русская версия](https://github.com/exillrei/AuroraBot/blob/main/README-ru.md)  
 # 🌠 AuroraBot - A functional bot for Minecraft
 
 What features are in the bot?:  
@@ -27,7 +26,7 @@ What features are in the bot?:
 ## 🤔 Usage
 
 Starting the bot:  
-```node bot```  
+```node main```  
 
 Bot prefix: **$**  
 Bot commands:  

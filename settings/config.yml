@@ -11,14 +11,22 @@ minwithdraw: 10000
 mindeposit: 10000
 minbet: 10000
 minwithdrawconfirm: 10000
-killswitch: true
+killswitch: false
 disablewithdraw: false
+casinocooldown: 5000
+bjcooldown: 5000
+enable_isnearby: false
 discord:
   roleid: 'Your Role ID'
 ai:
   model: 'Your Model'
   content: 'Your Content'
-
+gui:
+  slot: 0
+  cmd:
+    enable: false
+    cmd: games
+  hotbar_slot: 0
 bannedRunCommands:
   - /sphere
   - /cyl

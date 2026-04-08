@@ -15,6 +15,16 @@ const withdrawRequests = new Map();
 const activeBlackjackGames = new Map();
 let activeSpammer = null;
 let spammerInterval = null;
+const casinoCooldowns = new Map();
+const bjCooldowns = new Map();
+
+function isNearby(username, maxDistance = 10) {
+    const player = bot.players[username];
+    if (!player || !player.entity) return false;
+
+    const distance = bot.entity.position.distanceTo(player.entity.position);
+    return distance <= maxDistance;
+}
 
 export async function preCommandCheck({ cmd, parts, source, displayName, realUsername, isConsole }) {
     const trimmedCmd = cmd.toLowerCase();
@@ -34,6 +44,11 @@ export async function preCommandCheck({ cmd, parts, source, displayName, realUse
         await bot.chat(`/m ${displayName} &c${t('bot.blacklisted')}`);
         return false;
     }
+
+    if (source === 'mc' && config.enable_isnearby && !isNearby(displayName, 10)) {
+		await bot.chat(`/m ${displayName} ${t('bot.isnearby')}`);
+		return false;
+	}
 
     if (!alwaysAllowed.includes(trimmedCmd) && !isConsole) {
         if (!(await hasPermission(displayName, trimmedCmd))) {
@@ -1149,10 +1164,13 @@ export const commands = {
             minbet: t('bot.cmd.config.minbet'),
             minwithdrawconfirm: t('bot.cmd.config.minwithdrawconfirm'),
             killswitch: t('bot.cmd.config.killswitch'),
-            disablewithdraw: t('bot.cmd.config.disablewithdraw')
+            disablewithdraw: t('bot.cmd.config.disablewithdraw'),
+			casinocooldown: t('bot.cmd.config.casinocooldown'),
+			bjcooldown: t('bot.cmd.config.bjcooldown'),
+			enable_isnearby: t('bot.cmd.config.enable_isnearby')
         };
 
-        const hiddenParams = ['host', 'port', 'botnick', 'bannedRunCommands', 'discordBlockedCommands', 'alwaysAllowed', 'discord', 'ai'];
+        const hiddenParams = ['host', 'port', 'botnick', 'bannedRunCommands', 'discordBlockedCommands', 'alwaysAllowed', 'discord', 'ai', 'gui'];
 
         if (!args[0]) {
             let config_list = t('bot.cmd.config.list_header') + "\n";
@@ -1383,6 +1401,14 @@ export const commands = {
             return;
         }
 
+        const now = Date.now();
+        const lastCall = casinoCooldowns.get(displayName) || 0;
+        if (now - lastCall < config.casinocooldown) {
+            await bot.chat(`/m ${displayName} &c${t('bot.cooldown')}`);
+            return;
+        }
+        casinoCooldowns.set(displayName, now);
+
         const roll = Math.random() * 100;
         let multiplier = 0;
         if (roll < 45) multiplier = 0;
@@ -1433,6 +1459,14 @@ export const commands = {
                 bot.chat(`/m ${displayName} ${t('bot.cmd.casino.nomoney')}`);
                 return;
             }
+
+            const now = Date.now();
+            const lastCall = bjCooldowns.get(displayName) || 0;
+            if (now - lastCall < config.bjcooldown) {
+                await bot.chat(`/m ${displayName} &c${t('bot.cooldown')}`);
+                return;
+            }
+            bjCooldowns.set(displayName, now);
 
             await changeBalance(displayName, -bet);
             const playerHand = [drawCard(), drawCard()];

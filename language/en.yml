@@ -71,6 +71,8 @@ bot:
   banned: "&7Banned: {ban}"
   unspecified: "Not specified"
   usual: "Normal"
+  cooldown: "&cYou can't enter the command so often! Wait a bit."
+  isnearby: "&cYou're too far away!"
   cmd:
     error_occured: "Command {cmd} error occurred"
     noperm: "&cYou don't have access to"
@@ -277,6 +279,9 @@ bot:
       minwithdrawconfirm: "Minimum withdrawal amount to send confirmation request"
       killswitch: "Turn off bot functionality"
       disablewithdraw: "Disable withdrawals"
+      casinocooldown: "Casino cooldown"
+      bjcooldown: "BlackJack cooldown"
+      enable_isnearby: "Enable the abillity to use commands only near the bot"
     role:
       usagedc: |
         Usage:
@@ -365,7 +370,6 @@ other:
   bot:
     prefix: "[Bot]"
     logged: "Logged in"
-    cmdgames: "Logged in, sending /games..."
     end: "Logged out | Reason"
   player:
     join: "Player **`{username}`** joined."
