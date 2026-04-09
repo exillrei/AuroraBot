@@ -1077,7 +1077,6 @@ export async function unbanUser(username) {
 export async function isBanned(username) {
   if (username === 'SYSTEM') return false;
   return new Promise((resolve, reject) => {
-    console.log('isBanned check for username:', JSON.stringify(username));
     db.get('SELECT unbanAt, reason FROM bans WHERE nickname = ?', [username], async (err, row) => {
       if (err) return reject(err);
       if (!row) return resolve(false);
