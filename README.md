@@ -26,7 +26,7 @@ What features are in the bot?:
 ## 🤔 Usage
 
 Starting the bot:  
-```node main```  
+```node start```  
 
 Bot prefix: **$**  
 Bot commands:  
@@ -61,7 +61,7 @@ plugins - List of plugins
 > **PM2** installation:  
 > ```npm install pm2 -g```  
 > Starting the bot via **PM2**:  
-> ```pm2 start ecosystem.config.cjs```  
+> ```node start -> 2 option```  
 
 > [!NOTE]
-> Don't forget to edit **main.js (marked `/* Change ... */`)**, **.env**, and **bot settings (settings folder)** for yourself
+> Don't forget to edit **.env**, and **bot settings (settings folder)** for yourself

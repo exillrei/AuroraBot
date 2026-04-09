@@ -2,7 +2,7 @@ host: ip # Server IP
 port: 25565 # Server Port
 botnick: AuroraBot # Bot NickName
 lang: ru # Language. Default language: ru
-
+mcversion: "1.21.4" # Minecraft version
 msg_hidename: false
 botprefix: $
 autoconsole: false
@@ -19,14 +19,48 @@ enable_isnearby: false
 discord:
   roleid: 'Your Role ID'
 ai:
+  api: "https://openrouter.ai/api/v1/chat/completions"
   model: 'Your Model'
   content: 'Your Content'
+  text: "бот,"
+  cooldown: 10000
 gui:
   slot: 0
   cmd:
     enable: false
     cmd: games
   hotbar_slot: 0
+  title: "Menu Title"
+chat:
+  arrowSymbol: "⇨" # NickName ⇨ Message
+  chatFilters:
+    includes:
+      - "[ʟ]"
+      - "[ɢ]"
+      - "-> я]"
+      - "временно забанил IP-адрес"
+    startsWith:
+      - "[я ->"
+      - "[SS]"
+      - ">"
+      - "〄 Объявление:"
+      - "『КОНСОЛЬ』"
+  chatRegex1:
+    pattern: "^(❤ )?\\[(ɢ|ʟ)\\]"
+    flags: "i"
+  chatRegex2:
+    pattern: "^❤?\\s?\\[(ɢ|ʟ)\\]\\s?"
+    flags: "i"
+  moneyRegex:
+    pattern: "\\$([\\d]{1,3}(?:,\\d{3})*|\\d+)"
+    flags: ""
+  coinConvertRegex:
+    pattern: "\\$([\\d]{1,3}(?:,\\d{3})*) получено от игрока (.+?)\\."
+    flags: "i"
+  realnameRegex: "^~(.+?) is (\\w+)"
+  yourbalance: "Ваш баланс:"
+  autoconsole_trigger: "Добро пожаловать!"
+  unknown_player: ">  Игрок не найден."
 bannedRunCommands:
   - /sphere
   - /cyl

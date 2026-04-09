@@ -3,7 +3,7 @@ import {
     bot, outputToDiscord, getRole, getRoles, getUserExtraPerms, checkBan, isBlacklisted, hasPermission, startTime, formatUptime, discordClient, discordOutput, sendEmbed, db, roles, isBanned,
     addToBlacklist, removeFromBlacklist, getBlacklist, grantPermission, revokePermission, banUser, unbanUser, getBalance, changeBalance, setBalance, getBotBalance, getSymbol, startBroadcast, stopBroadcast,
     resolveUserArg, userExists, shop, saveShop, savePurchases, purchases, codesCache, codesFile, seenPlayers, saveRoles, buildDatabaseEmbed, buildButtons
-} from '../main.js';
+} from './main.js';
 import { globals } from './globals.js';
 import chalk from 'chalk';
 import { exec } from "child_process";

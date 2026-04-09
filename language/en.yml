@@ -392,3 +392,6 @@ other:
       send_notext: "Specify text to send."
       sended: "Message sent!"
       send_error: "Error sending:"
+  proxy:
+    msg1: "Unable to connect to"
+    msg2: "Kick on connection"

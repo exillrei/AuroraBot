@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
-import * as botModule from '../main.js';
+import * as botModule from './main.js';
 import chalk from 'chalk';
 
 export const plugins = new Map();

@@ -8,7 +8,15 @@ import chalk from "chalk";
 import yaml from 'js-yaml';
 import sqlite3 from 'sqlite3';
 export const db = new sqlite3.Database('./bot.db');
-import { config, t, languages } from './system/loaders.js';
+import { config, t, languages } from './loaders.js';
+
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ROOT = path.resolve(__dirname, '..');
 
 db.run(`
   CREATE TABLE IF NOT EXISTS users (
@@ -23,7 +31,7 @@ db.run(`
   CREATE TABLE IF NOT EXISTS bans (
     nickname TEXT PRIMARY KEY,
     unbanAt INTEGER NOT NULL,
-    reason TEXT DEFAULT 'Без причины'
+    reason TEXT DEFAULT '???'
   )
 `);
 
@@ -41,9 +49,9 @@ db.run(`
   )
 `);
 
-import { preCommandCheck, commands } from './system/commands.js';
-import { globals } from './system/globals.js';
-import { pluginCommands, plugins, loadAllPlugins } from './system/PluginManager.js';
+import { preCommandCheck, commands } from './commands.js';
+import { globals } from './globals.js';
+import { pluginCommands, plugins, loadAllPlugins } from './PluginManager.js';
 
 export const discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 export let discordOutput = null;
@@ -51,8 +59,8 @@ let discordLogOutput;
 const recentMessages = new Set();
 
 export const startTime = Date.now();
-let lastBotCall = 0;
-const botCooldown = 30000;
+let lastAiCall = 0;
+const aiCooldown = config.ai.cooldown;
 let currentGame = null;
 let awaitingAnswer = false;
 let gameTimeout = null;
@@ -81,7 +89,7 @@ export const bot = mineflayer.createBot({
   host: config.host,
   port: config.port,
   username: config.botnick,
-  version: '1.21.4'
+  version: config.mcversion
 });
 
 await loadAllPlugins();
@@ -354,7 +362,7 @@ async function logToDiscordChatLog(message) {
 }
 
 const pkgjson = JSON.parse(
-  fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')
+  fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
 );
 
 const currentVersion = pkgjson.version;
@@ -553,7 +561,7 @@ function limitCharsByWords(text, maxChars = 240) {
 
 async function queryAI(prompt) {
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(config.ai.api, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.AI_API_KEY}`,
@@ -893,13 +901,13 @@ async function processAI(realNick, msgText) {
   }
 
   const now = Date.now();
-  if (now - lastBotCall < botCooldown) {
+  if (now - lastAiCall < aiCooldown) {
     await bot.chat(`/m ${realNick} &c${t('bot.ai_cooldown')}`);
     return;
   }
-  lastBotCall = now;
+  lastAiCall = now;
 
-  const parts = msgText.toLowerCase().split('бот,'); /* Change "бот," for another word */
+  const parts = msgText.toLowerCase().split(config.ai.text);
   if (parts.length < 2) return;
 
   const prompt = parts[1].trim();
@@ -917,7 +925,10 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
 
     if (isDuplicateMessage(username, msgText)) return;
 
-    if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed) && msgText.toLowerCase().includes('бот,')) { /* Change "бот," for another word */
+    const chatRegex1 = new RegExp(config.chat.chatRegex1.pattern, config.chat.chatRegex1.flags);
+    const chatRegex2 = new RegExp(config.chat.chatRegex2.pattern, config.chat.chatRegex2.flags);
+
+    if (chatRegex1.test(parsed) && msgText.toLowerCase().includes(config.ai.text)) {
 
       if (usernameRaw.startsWith('~')) {
         const displayNick = usernameRaw
@@ -935,7 +946,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
       return;
     }
 
-    const arrowSymbol = '⇨' /* Change arrowSymbol */
+    const arrowSymbol = config.chat.arrowSymbol;
     const arrowIndex = parsed.lastIndexOf(arrowSymbol);
 
     if (awaitingAnswer && currentGame && arrowIndex !== -1) {
@@ -963,16 +974,15 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
     }
 
     const ChatMessage =
-      parsed.includes('[ʟ]') || parsed.includes('[ɢ]') ||
-      parsed.startsWith('[я ->') || parsed.includes('-> я]') ||
-      parsed.startsWith('[SS]'); /* Change this */
+      config.chat.chatFilters.includes.some(f => parsed.includes(f)) ||
+      config.chat.chatFilters.startsWith.some(f => parsed.startsWith(f));
 
     if (ChatMessage) {
 
       chatLogList.push(parsed);
 
-      if (parsed.startsWith('『КОНСОЛЬ』')) { /* Change "『КОНСОЛЬ』" for another word */
-        const parts = parsed.split('использовал команду'); /* Change "использовал команду" for another word */
+      if (parsed.startsWith('『КОНСОЛЬ』')) {
+        const parts = parsed.split('использовал команду');
         const leftPart = parts[0].replace('『КОНСОЛЬ』', '').trim();
         const username = leftPart.split(/\s+/).pop();
         const command = parts[1]?.trim() || '';
@@ -987,12 +997,12 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
         return;
       }
 
-      if (parsed.includes(arrowSymbol) && !/^❤?\s?\[(ɢ|ʟ)\]\s?/i.test(parsed)) {  /* Change regex */
+      if (parsed.includes(arrowSymbol) && !chatRegex2.test(parsed)) {
         await discordOutput.send({ embeds: [sendEmbed(`⚠️ ${t('bot.suspiciousactivity')}`, ``, { color: 0xf1c40f, footer: 'WARN', fields: [{ name: `${t('bot.suspiciousactivity_verify')}`, value: `\`\`\`${parsed}\`\`\``, inline: true }], timestamp: true })] });
         return;
       }
 
-      if (/^(❤ )?\[(ɢ|ʟ)\]/i.test(parsed)) { /* Change regex */
+      if (chatRegex1.test(parsed)) {
         const leftPart = parsed.slice(0, arrowIndex).trim();
         let usernameRaw = leftPart.split(/\s+/).pop();
         if (arrowIndex !== -1) {
@@ -1067,6 +1077,7 @@ export async function unbanUser(username) {
 export async function isBanned(username) {
   if (username === 'SYSTEM') return false;
   return new Promise((resolve, reject) => {
+    console.log('isBanned check for username:', JSON.stringify(username));
     db.get('SELECT unbanAt, reason FROM bans WHERE nickname = ?', [username], async (err, row) => {
       if (err) return reject(err);
       if (!row) return resolve(false);
@@ -1159,8 +1170,9 @@ export function getBotBalance() {
   return new Promise((resolve) => {
     const listener = async (jsonMsg) => {
       const parsed = jsonMsg.toString();
-      if (parsed.includes('Ваш баланс:')) { /* Change "Ваш баланс:" for another word */
-        const match = parsed.match(/\$([\d]{1,3}(?:,\d{3})*|\d+)/);
+      if (parsed.includes(config.chat.yourbalance)) {
+        const moneyRegex = new RegExp(config.chat.moneyRegex.pattern, config.chat.moneyRegex.flags);
+        const match = parsed.match(moneyRegex);
         if (match) {
           bot.removeListener('message', listener);
           resolve(parseInt(match[1].replace(/,/g, ''), 10));
@@ -1345,8 +1357,8 @@ bot.on('login', () => {
 bot.once('spawn', async () => {
   if (config.gui.cmd.enable) setTimeout(() => bot.chat(`/${config.gui.cmd.cmd}`), 1000);
   else {
-	  bot.setQuickBarSlot(config.gui.hotbar_slot)
-	  bot.activateItem()
+    bot.setQuickBarSlot(config.gui.hotbar_slot);
+    bot.activateItem();
   }
   setTimeout(() => fullySpawned = true, 5000);
 });
@@ -1387,34 +1399,40 @@ bot.on('actionBar', json => {
   console.log('ActionBar:', parsed);
 });
 
-bot.on('message', async (jsonMsg) => {
+bot.on('message', async (jsonMsg, position) => {
+
+  if (position === 'game_info') return;
+
   const parsed = jsonMsg.toString();
   const colored = (parseColoredText(jsonMsg?.unsigned?.json || jsonMsg?.json || jsonMsg, mclang) + '').replace(/§[xr]/gi, '');
   const translateKey = jsonMsg.json?.translate || jsonMsg?.translate;
   if (translateKey === 'sleep.players_sleeping') return;
   if (parsed) console.log(colored);
 
-  const arrowSymbol = '⇨'
+  const arrowSymbol = config.chat.arrowSymbol;
   const arrowIndex = parsed.lastIndexOf(arrowSymbol);
 
-  if (config.autoconsole && parsed.includes("Добро пожаловать!")) { /* Change "Добро пожаловать!" for another word */
+  if (config.autoconsole && parsed.includes(config.chat.autoconsole_trigger)) {
     bot.chat("/console");
   }
 
-  /* Change "Не удалось подключить вас к серверу" and "Кикнут при подключении" for another words */
-  if (parsed.startsWith("Не удалось подключить вас к серверу") || parsed.startsWith("Exception Connecting:ReadTimeoutException : null") || parsed.startsWith("Кикнут при подключении") || parsed.startsWith("Exception Connecting:NativeIoException : io_uring read(..) failed with error(-104): Connection reset by peer")) {
+  if (parsed.startsWith(t('other.proxy.msg1')) || parsed.startsWith("Exception Connecting:ReadTimeoutException : null") || parsed.startsWith(t('other.proxy.msg2')) || parsed.startsWith("Exception Connecting:NativeIoException : io_uring read(..) failed with error(-104): Connection reset by peer")) {
     try {
-      await bot.chat("/games");
+      bot.setQuickBarSlot(config.gui.hotbar_slot)
+      bot.activateItem()
+
+      const slotIndex = config.gui.slot;
+      const slot = window.slots[slotIndex];
 
       setTimeout(() => {
-        bot.clickWindow(21, 0, 0);
+        bot.clickWindow(slot.slot, 0, 0);
       }, 1500);
     } catch (err) {
       console.error(chalk.hex('#FF0000')(`${t('bot.error_prefix')}: ${err}`));
     }
   }
 
-  const coinConvertRegex = /\$([\d]{1,3}(?:,\d{3})*) получено от игрока (.+?)\./; /* Change "получено от игрока" for another word */
+  const coinConvertRegex = new RegExp(config.chat.coinConvertRegex.pattern, config.chat.coinConvertRegex.flags);
   const match1 = parsed.match(coinConvertRegex);
 
   if (match1) {
@@ -1466,7 +1484,8 @@ bot.on('message', async (jsonMsg) => {
     }, 500);
   }
 
-  const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
+  const realnameRegex = new RegExp(config.chat.realnameRegex);
+  const realnameMatch = parsed.match(realnameRegex);
   if (realnameMatch) {
     const displayNick = `~${realnameMatch[1]}`
     const realNick = realnameMatch[2];
@@ -1520,7 +1539,7 @@ bot.on('message', async (jsonMsg) => {
     return;
   }
 
-  if (parsed.startsWith('>  Игрок не найден.')) { /* Change ">  Игрок не найден." for another word */
+  if (parsed.startsWith(config.chat.unknown_player)) {
     if (pendingRealnames.size > 0) {
       for (const [displayNick, data] of pendingRealnames.entries()) {
         nickMap.set(displayNick, "Unknown Player");
@@ -1543,7 +1562,7 @@ bot.on('message', async (jsonMsg) => {
     msgText = parsed.slice(arrowIndex + arrowSymbol.length).trim();
 
     if (usernameRaw.startsWith('~')) {
-      const realnameMatch = parsed.match(/^~(.+?) is (\w+)/);
+      const realnameMatch = parsed.match(realnameRegex);
       if (realnameMatch) {
         usernameRaw = realnameMatch[2];
         nickMap.set(`~${realnameMatch[1]}`, usernameRaw);
@@ -1569,8 +1588,8 @@ bot.once('windowOpen', (window) => {
     chalk.bold.hex('#FF70C3')(t('other.gui.prefix')) + ' ' +
     chalk.hex('#ffafde')(`${t('other.gui.window_opened')}: ${title}`)
   );
-  
-  if (title.toLowerCase().includes('выбор')) { /* Change "выбор" for another word */
+
+  if (title.toLowerCase().includes(config.gui.title)) {
     const slotIndex = config.gui.slot;
     const slot = window.slots[slotIndex];
     if (slot) {
@@ -1616,10 +1635,11 @@ rl.on('line', async (input) => {
   const trimmed = input.trim();
   const lowered = trimmed.toLowerCase();
 
-  const consoleCommands = ['blacklist', 'eco', 'cmd', 'ban', 'unban', 'rape', 'exit', 'info', 'bcode', 'restart', 'role'];
+  const consoleCommands = ['blacklist', 'eco', 'cmd', 'ban', 'unban', 'exit', 'info', 'bcode', 'restart', 'role'];
 
   if (consoleCommands.some(cmd => lowered.startsWith(config.botprefix + cmd))) {
     await processUserCommand('SYSTEM', trimmed);
+
   } else if (trimmed.startsWith('menu.slot.')) {
     const slotStr = trimmed.split('.')[2];
     const slot = parseInt(slotStr, 10);
@@ -1633,26 +1653,9 @@ rl.on('line', async (input) => {
     }
     try {
       await bot.clickWindow(slot, 0, 0);
-      console.log(chalk.hex('#00FF00')(t('other.console.menu.slotclicked', { slot: slot })));
+      console.log(chalk.hex('#00FF00')(t('other.console.menu.slotclicked', { slot })));
     } catch (err) {
       console.log(chalk.hex('#FF0000')(`${t('other.console.menu.click_error')}: ${err}`));
-    }
-  } else if (trimmed.startsWith('/')) {
-    bot.chat(trimmed);
-
-  } else if (trimmed.startsWith('discord.send ')) {
-    const msg = trimmed.slice("discord.send".length).trim();
-
-    if (!msg) {
-      console.log(chalk.hex('#7CB6FF')(t('other.console.discord.send_notext')));
-      return
-    }
-
-    try {
-      await discordOutput.send(msg);
-      console.log(chalk.hex('#7CB6FF')(t("other.console.discord.sended")));
-    } catch (err) {
-      console.error(chalk.hex('#7CB6FF')(`${t('other.console.discord.send_error')}: ${err}`));
     }
 
   } else if (trimmed.startsWith('menu.close')) {
@@ -1671,17 +1674,28 @@ rl.on('line', async (input) => {
           const idName = item.name;
           const rawName = item?.nbt?.value?.display?.value?.Name?.value;
           const displayName = rawName ? itemDisplayName(JSON.parse(rawName)) : idName;
-
           console.log(chalk.hex('#B4E781')(`[${index}] ${idName} x${item.count} (${displayName})`));
         }
       });
-
     } else {
       console.log(chalk.hex('#FF0000')(t('other.console.menu.nomenu')));
     }
 
+  } else if (trimmed.startsWith('discord.send ')) {
+    const msg = trimmed.slice("discord.send".length).trim();
+    if (!msg) {
+      console.log(chalk.hex('#7CB6FF')(t('other.console.discord.send_notext')));
+      return;
+    }
+    try {
+      await discordOutput.send(msg);
+      console.log(chalk.hex('#7CB6FF')(t("other.console.discord.sended")));
+    } catch (err) {
+      console.error(chalk.hex('#7CB6FF')(`${t('other.console.discord.send_error')}: ${err}`));
+    }
+
   } else {
-    bot.chat(`${trimmed}`);
+    bot.chat(trimmed);
   }
 });
 
