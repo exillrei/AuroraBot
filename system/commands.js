@@ -45,7 +45,7 @@ export async function preCommandCheck({ cmd, parts, source, displayName, realUse
         return false;
     }
 
-    if (displayname !== 'SYSTEM' && source === 'mc' && config.enable_isnearby && !isNearby(displayName, 10)) {
+    if (displayName !== 'SYSTEM' && source === 'mc' && config.enable_isnearby && !isNearby(displayName, 10)) {
 		await bot.chat(`/m ${displayName} ${t('bot.isnearby')}`);
 		return false;
 	}

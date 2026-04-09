@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "AuroraBot",
-      script: "./main.js",
+      script: "./system/main.js",
       watch: false,
       out_file: null,
       error_file: null,
