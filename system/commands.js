@@ -1170,7 +1170,7 @@ export const commands = {
 			enable_isnearby: t('bot.cmd.config.enable_isnearby')
         };
 
-        const hiddenParams = ['host', 'port', 'botnick', 'bannedRunCommands', 'discordBlockedCommands', 'alwaysAllowed', 'discord', 'ai', 'gui'];
+        const hiddenParams = ['host', 'port', 'botnick', 'bannedRunCommands', 'discordBlockedCommands', 'alwaysAllowed', 'discord', 'ai', 'gui', 'chat', 'mcversion'];
 
         if (!args[0]) {
             let config_list = t('bot.cmd.config.list_header') + "\n";
