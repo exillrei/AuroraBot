@@ -16,6 +16,8 @@ disablewithdraw: false
 casinocooldown: 5000
 bjcooldown: 5000
 enable_isnearby: false
+enable_chatgame: true
+chatgame_interval: 90000
 discord:
   roleid: 'Your Role ID'
 ai:

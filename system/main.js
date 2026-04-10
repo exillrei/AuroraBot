@@ -857,10 +857,10 @@ function startChatGame() {
 }
 
 setInterval(() => {
-  if (!awaitingAnswer && bot.player) {
+  if (!awaitingAnswer && bot.player && config.enable_chatgame) {
     startChatGame();
   }
-}, 90 * 1000);
+}, config.chatgame_interval);
 
 function pickReward(rewards) {
   const rand = Math.random();
