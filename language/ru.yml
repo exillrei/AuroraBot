@@ -283,6 +283,8 @@ bot:
       casinocooldown: "КД Казино"
       bjcooldown: "КД BlackJack"
       enable_isnearby: "Включить возможность использование команд только рядом с ботом"
+      enable_chatgame: "Включить чат-игру"
+      chatgame_interval: "Интервал чат-игры"
     role:
       usagedc: |
         Использование:

@@ -1167,7 +1167,9 @@ export const commands = {
             disablewithdraw: t('bot.cmd.config.disablewithdraw'),
 			casinocooldown: t('bot.cmd.config.casinocooldown'),
 			bjcooldown: t('bot.cmd.config.bjcooldown'),
-			enable_isnearby: t('bot.cmd.config.enable_isnearby')
+			enable_isnearby: t('bot.cmd.config.enable_isnearby'),
+			enable_chatgame: t('bot.cmd.config.enable_chatgame'),
+			chatgame_interval: t('bot.cmd.config.chatgame_interval')
         };
 
         const hiddenParams = ['host', 'port', 'botnick', 'bannedRunCommands', 'discordBlockedCommands', 'alwaysAllowed', 'discord', 'ai', 'gui', 'chat', 'mcversion'];

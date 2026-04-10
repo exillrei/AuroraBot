@@ -282,6 +282,8 @@ bot:
       casinocooldown: "Casino cooldown"
       bjcooldown: "BlackJack cooldown"
       enable_isnearby: "Enable the abillity to use commands only near the bot"
+      enable_chatgame: "Enable chatgame"
+      chatgame_interval: "Chatgame interval"
     role:
       usagedc: |
         Usage:
