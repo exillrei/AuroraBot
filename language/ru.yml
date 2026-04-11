@@ -40,7 +40,67 @@ db:
   total: "Всего"
   engine: "Движок"
   readerror: "Ошибка чтения базы данных"
-
+  
+# Консоль
+console:
+  info:
+    creator: "Создатель: "
+    uptime: "Аптайм: "
+    connection: "Подключен к: "
+    online: "Онлайн сервера: "
+    ping: "Пинг MC/DC: "
+    nickname: "Ник: "
+    id: "ID: "
+    role: "Роль: "
+    balance: "Баланс: "
+    banned: "Забанен: "
+  usernotfound: "Пользователь {user} не найден"
+  blacklist:
+    prefix: "[ЧС] "
+    usage1: "Использование: "
+    usage2: "{prefix}blacklist add/remove <ник/ID> | {prefix}blacklist info"
+    empty: "Чёрный список пуст."
+    list: "В чёрном списке: "
+    already: "Игрок {user} уже в чёрном списке."
+  ban:
+    prefix: "[Бан] "
+    usage1: "Использование: "
+    usage2: "{prefix}ban <ник/ID> <время> <причина>"
+    bad_time: "Неверный формат времени."
+  unban:
+    prefix: "[Разбан] "
+    usage1: "Использование: "
+    usage2: "{prefix}unban <ник/ID>"
+    not_banned: "Игрок {user} не в бане."
+  cmd:
+    prefix: "[CMD] "
+    usage1: "Использование: "
+    usage2: "{prefix}cmd give/take <ник/ID> <команда>"
+  eco:
+    prefix: "[Экономика] "
+    usage1: "Использование: "
+    usage2: "{prefix}eco give/take <ник/ID> <сумма>"
+  role:
+    prefix: "[Роль] "
+    usage1: "Использование: "
+    usage2: "Использование: {prefix}role add <роль& <имя> | {prefix}role remove <роль> | {prefix}role set <ник/ID> <роль> | {prefix}role cmd add/remove <роль> <команда>"
+    usage_add: "{prefix}role add <роль> <имя>"
+    usage_remove: "prefix}role remove <роль>"
+    usage_set: "{prefix}role set <ник/ID> <роль>"
+    usage_cmd: "prefix}role cmd add/remove <роль> <команда>"
+    exists: "Роль {role} уже существует."
+    created: "Роль {role} создана."
+    notfound: "Роль {role} не найдена."
+    removed: "Роль {role} удалена."
+    cmd_removeddc: "Команда {command} убрана у роли {role}."
+    cmd_addeddc: "Команда {command} добавлена для роли {role}."
+    unknown_subdc: "Неизвестная подкоманда."
+  bcode:
+    prefix: "[Оповещение кодов] "  
+    no_code1: "Укажите код: "
+    no_code2: "{prefix}bcode <код>"
+    not_found: "Код {code} не найден."
+    
 # Бот
 bot:
   ai_unavailable: "&8[&#FF0000✘&8] &cОбщение с ИИ временно недоступно."

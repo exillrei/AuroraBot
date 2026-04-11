@@ -3,6 +3,7 @@ import { execSync, spawn } from 'child_process';
 import chalk from 'chalk';
 import path from 'path';
 import fs from 'fs';
+import { miniMessage } from './system/minimessage.js';
 
 const ROOT = path.resolve(process.cwd());
 
@@ -16,14 +17,21 @@ const rl = readline.createInterface({
 });
 
 function showHeader() {
-  console.log(chalk.hex('#7C00FF')(`
- █████╗ ██╗   ██╗██████╗  ██████╗ ██████╗  █████╗ ██████╗  ██████╗ ████████╗
-██╔══██╗██║   ██║██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██╔══██╗██╔═══██╗╚══██╔══╝
-███████║██║   ██║██████╔╝██║   ██║██████╔╝███████║██████╔╝██║   ██║   ██║   
-██╔══██║██║   ██║██╔══██╗██║   ██║██╔══██╗██╔══██║██╔══██╗██║   ██║   ██║   
-██║  ██║╚██████╔╝██║  ██║╚██████╔╝██║  ██║██║  ██║██████╔╝╚██████╔╝   ██║   
-╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝    ╚═╝                                                         
-  `));
+
+  console.log(
+    miniMessage('<gradient:#7C00FF:#D0A3FF> █████╗ ██╗   ██╗██████╗  ██████╗ ██████╗  █████╗ ██████╗  ██████╗ ████████╗</gradient>') +
+    ('\n') +
+    miniMessage('<gradient:#7C00FF:#D0A3FF>██╔══██╗██║   ██║██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██╔══██╗██╔═══██╗╚══██╔══╝</gradient>') +
+    ('\n') +
+    miniMessage('<gradient:#7C00FF:#D0A3FF>███████║██║   ██║██████╔╝██║   ██║██████╔╝███████║██████╔╝██║   ██║   ██║   </gradient>') +
+    ('\n') +
+    miniMessage('<gradient:#7C00FF:#D0A3FF>██╔══██║██║   ██║██╔══██╗██║   ██║██╔══██╗██╔══██║██╔══██╗██║   ██║   ██║   </gradient>') +
+    ('\n') +
+    miniMessage('<gradient:#7C00FF:#D0A3FF>██║  ██║╚██████╔╝██║  ██║╚██████╔╝██║  ██║██║  ██║██████╔╝╚██████╔╝   ██║   </gradient>') +
+    ('\n') +
+    miniMessage('<gradient:#7C00FF:#D0A3FF>╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝    ╚═╝   </gradient>') +
+    ('\n')
+  )
 
   console.log(
     chalk.hex('#5795FF')('Creator: ') +
@@ -53,7 +61,7 @@ function hasPM2() {
 function startUsual() {
   console.clear();
   console.log(
-    chalk.hex('#7C00FF')('[AuroraBot] ') +
+    miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
     chalk.hex('#D5D5D5')('Starting bot (Start type: Usual)')
   );
 
@@ -67,7 +75,7 @@ function startUsual() {
 		process.exit(0)
 	}
     console.log(
-      chalk.hex('#7C00FF')('[AuroraBot] ') +
+      miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
       chalk.hex('#D5D5D5')(`Bot crashed (code: ${code}). Restarting...`)
     );
     setTimeout(startUsual, 3000);
@@ -75,7 +83,7 @@ function startUsual() {
 
   bot.on('error', (err) => {
     console.log(
-      chalk.hex('#7C00FF')('[AuroraBot] ') +
+      miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
       chalk.hex('#D5D5D5')(`Error: ${err.message}`)
     );
   });
@@ -84,13 +92,13 @@ function startUsual() {
 function startPM2() {
   console.clear();
   console.log(
-    chalk.hex('#7C00FF')('[AuroraBot] ') +
+    miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
     chalk.hex('#D5D5D5')(`Starting bot (Start type: PM2)`)
   );
 
   if (!hasPM2()) {
     console.log(
-      chalk.hex('#7C00FF')('[AuroraBot] ') +
+      miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
       chalk.hex('#D5D5D5')(`PM2 is not installed! Run: npm install -g pm2`)
     );
     process.exit(1);
@@ -101,7 +109,7 @@ function startPM2() {
     execSync('pm2 save', { stdio: 'inherit' });
 
     console.log(
-      chalk.hex('#7C00FF')('[AuroraBot] ') +
+      miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
       chalk.hex('#D5D5D5')(`Bot started with PM2`)
     );
 
@@ -109,7 +117,7 @@ function startPM2() {
 
   } catch (err) {
     console.log(
-      chalk.hex('#7C00FF')('[AuroraBot] ') +
+      miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
       chalk.hex('#D5D5D5')(`PM2 start failed: ${err.message}`)
     );
   }
@@ -143,7 +151,7 @@ function menu() {
 
       default:
         console.log(
-          chalk.hex('#7C00FF')('[AuroraBot] ') +
+          miniMessage('<gradient:#7C00FF:#D0A3FF>[AuroraBot] </gradient>') +
           chalk.hex('#D5D5D5')(`Invalid option`)
         );
         setTimeout(menu, 1000);

@@ -41,6 +41,66 @@ db:
   engine: "Engine"
   readerror: "Database read error"
 
+# Console
+console:
+  info:
+    creator: "Creator: "
+    uptime: "Uptime: "
+    connection: "Connected to: "
+    online: "Server online: "
+    ping: "MC/DC Ping: "
+    nickname: "Nickname: "
+    id: "ID: "
+    role: "Role: "
+    balance: "Balance: "
+    banned: "Banned: "
+  usernotfound: "User {user} not found"
+  blacklist:
+    prefix: "[BlackList] "
+    usage1: "Usage: "
+    usage2: "{prefix}blacklist add/remove <nick/ID> | {prefix}blacklist info"
+    empty: "Blacklist is empty."
+    list: "Blacklisted: "
+    already: "Player {user} is already in the blacklist."
+  ban:
+    prefix: "[Ban] "
+    usage1: "Usage: "
+    usage2: "{prefix}ban <nick/ID> <time> <reason>"
+    bad_time: "Invalid time format."
+  unban:
+    prefix: "[Unban] "
+    usage1: "Usage: "
+    usage2: "{prefix}unban <nick/ID>"
+    not_banned: "Player {user} is not banned."
+  cmd:
+    prefix: "[CMD] "
+    usage1: "Usage: "
+    usage2: "{prefix}cmd give/take <nick/ID> <command>"
+  eco:
+    prefix: "[Economy] "
+    usage1: "Usage: "
+    usage2: "{prefix}eco give/take <nick/ID> <amount>"
+  role:
+    prefix: "[Role] "
+    usage1: "Usage: "
+    usage2: "Usage: {prefix}role add <role> <name> | {prefix}role remove <role> | {prefix}role set <nick/ID> <role> | {prefix}role cmd add/remove <role> <command>"
+    usage_add: "{prefix}role add <role> <name>"
+    usage_remove: "{prefix}role remove <role>"
+    usage_set: "{prefix}role set <nick/ID> <role>"
+    usage_cmd: "{prefix}role cmd add/remove <role> <command>"
+    exists: "Role {role} already exists."
+    created: "Role {role} created."
+    notfound: "Role {role} not found."
+    removed: "Role {role} removed."
+    cmd_removeddc: "Command {command} removed from role {role}."
+    cmd_addeddc: "Command {command} added to role {role}."
+    unknown_subdc: "Unknown subcommand."
+  bcode:
+    prefix: "[Code Broadcast] "
+    no_code1: "Specify a code: "
+    no_code2: "{prefix}bcode <code>"
+    not_found: "Code {code} not found."
+    
 # Bot
 bot:
   ai_unavailable: "&8[&#FF0000✘&8] &cAI communication temporarily unavailable."

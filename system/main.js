@@ -52,6 +52,7 @@ db.run(`
 import { preCommandCheck, commands } from './commands.js';
 import { globals } from './globals.js';
 import { pluginCommands, plugins, loadAllPlugins } from './PluginManager.js';
+import { miniMessage } from './minimessage.js';
 
 export const discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 export let discordOutput = null;
@@ -118,14 +119,14 @@ discordClient.login(process.env.DISCORD_TOKEN);
 
 discordClient.once('ready', async () => {
   console.log(
-    chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+    miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord] </gradient></bold>') +
     chalk.hex('#acacac')(t('discord.bot_logged_in', { tag: discordClient.user.tag }))
   );
 
   const guild = discordClient.guilds.cache.get(process.env.DISCORD_GUILD_ID);
   if (!guild) {
     console.warn(
-      chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+      miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord] </gradient></bold>') +
       chalk.hex('#FF7C7C')(t('discord.server_notfound'))
     );
     return;
@@ -133,13 +134,13 @@ discordClient.once('ready', async () => {
 
   discordOutput = guild.channels.cache.get(process.env.DISCORD_CHANNEL_ID);
   if (!discordOutput) console.warn(
-    chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+    miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord] </gradient></bold>') +
     chalk.hex('#FF7C7C')(t('discord.cmdchannel_notfound'))
   );
 
   discordLogOutput = guild.channels.cache.get(process.env.DISCORD_LOG_CHANNEL_ID);
   if (!discordLogOutput) console.warn(
-    chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+    miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord] </gradient></bold>') +
     chalk.hex('#FF7C7C')(t('discord.logchannel_notfound'))
   );
 
@@ -176,7 +177,7 @@ discordClient.on('messageCreate', async (msg) => {
 
   const content = msg.content.trim();
   console.log(
-    chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+    miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord] </gradient></bold>') +
     chalk.hex('#acacac')(`${msg.member.displayName}:`) + ' ' +
     chalk.hex('#ffffff')(`${content}`)
   );
@@ -196,7 +197,7 @@ discordClient.on('messageCreate', async (msg) => {
 
   } catch (err) {
     console.error(
-      chalk.bold.hex('#7CB6FF')('[Discord]') + ' ' +
+      miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord] </gradient></bold>') +
       chalk.hex('#FF7C7C')(`${t('discord.command_processing_error')}: ${err.stack}`)
     );
     await msg.reply(`${t('discord.msg_command_processing_error')}`);
@@ -331,7 +332,7 @@ export async function outputToDiscord(message) {
 
   } catch (err) {
     console.error(
-      chalk.bold.hex('#7CB6FF')('[Discord Output]') + ' ' +
+      miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord Output] </gradient></bold>') +
       chalk.hex('#FF7C7C')(`${t('discord.output_error')}: ${err}`)
     );
   }
@@ -355,7 +356,7 @@ async function logToDiscordChatLog(message) {
 
   } catch (err) {
     console.error(
-      chalk.bold.hex('#7CB6FF')('[Discord ChatLog]') + ' ' +
+      miniMessage('<bold><gradient:#7CB6FF:#c6e0ff>[Discord Chatlog] </gradient></bold>') +
       chalk.hex('#FF7C7C')(`${t('discord.log_error')}: ${err}`)
     );
   }
@@ -381,7 +382,7 @@ async function checkUpdate() {
 
     if (latestVersion !== currentVersion) {
       console.log(
-        chalk.bold.hex('#2267fb')('[UPDATE]') + ' ' +
+        miniMessage('<bold><gradient:#2267fb:#92b5ff>[UPDATE] </gradient></bold>') +
         chalk.hex('#cdddff')(`${t('update.available')} ${latestVersion}`) + ' ' +
         chalk.hex('#3870a8')(`(${t('update.yourversion')} ${currentVersion})`)
       );
@@ -826,7 +827,7 @@ function startChatGame() {
     const games = yaml.load(fs.readFileSync('./settings/chatgame.yml', 'utf8'));
     if (!Array.isArray(games) || games.length === 0) {
       console.log(
-        chalk.bold.hex('#00ffaa')(t('bot.chatgame_prefix')) + ' ' +
+        miniMessage(`<bold><gradient:#00ffaa:#abffe3>${t('bot.chatgame_prefix')} </gradient></bold>`) +
         chalk.hex('#ff7c7c')(t('bot.chatgame_noquestions'))
       );
       return;
@@ -850,7 +851,7 @@ function startChatGame() {
     }, 30 * 1000);
   } catch (err) {
     console.error(
-      chalk.bold.hex('#00ffaa')(t('bot.chatgame_prefix')) + ' ' +
+      miniMessage(`<bold><gradient:#00ffaa:#abffe3>${t('bot.chatgame_prefix')} </gradient></bold>`) +
       chalk.hex('#ff7c7c')(`${t('bot.chatgame_readerror')} ${err}`)
     );
   }
@@ -1024,7 +1025,7 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
             await processUserCommand(usernameRaw, msgText, 'mc', null, parsed);
           } catch (err) {
             console.error(
-              chalk.bold.hex('#FF0000')(t('bot.error_prefix')) + ' ' +
+              miniMessage(`<bold><gradient:#FF0000:#ff4f4f>${t('bot.error_prefix')} </gradient></bold>`) +
               chalk.hex('#ff8282')('processUserCommand:', err)
             );
           }
@@ -1039,7 +1040,10 @@ async function handleChat(usernameRaw, msgText, parsed, jsonMsg, source) {
     if (source === 'mc') await processUserCommand(usernameRaw, msgText, 'mc', null, parsed);
 
   } catch (err) {
-    console.error(chalk.hex('#FF7C7C')(`${t('bot.error_prefix')}: ${err}`));
+    console.error(
+      miniMessage(`<bold><gradient:#FF0000:#ff4f4f>${t('bot.error_prefix')} </gradient></bold>`) +
+      chalk.hex('#ffa3a3')(err)
+    );
   }
 }
 
@@ -1189,12 +1193,12 @@ function loadShop() {
     shop = yaml.load(file) || [];
     if (!Array.isArray(shop)) shop = [];
     console.log(
-      chalk.bold.hex('#ffd900')(t('bot.shop_prefix')) + ' ' +
+      miniMessage(`<bold><gradient:#ffd900:#ffee90>${t('bot.shop_prefix')} </gradient></bold>`) +
       chalk.hex('#7DFF7C')(t('bot.shop_loaded'))
     );
   } catch (err) {
     console.error(
-      chalk.bold.hex('#ffd900')(t('bot.shop_prefix')) + ' ' +
+      miniMessage(`<bold><gradient:#ffd900:#ffee90>${t('bot.shop_prefix')} </gradient></bold>`) +
       chalk.hex('#FF7C7C')(`${t('bot.errorload')}: ${err}`)
     );
     shop = [];
@@ -1213,7 +1217,7 @@ export function saveShop() {
 
 fs.watchFile('./settings/shop.yml', () => {
   console.log(
-    chalk.bold.hex('#ffd900')(t('bot.shop_prefix')) + ' ' +
+    miniMessage(`<bold><gradient:#ffd900:#ffee90>${t('bot.shop_prefix')} </gradient></bold>`) +
     chalk.hex('#e7ff7c')(t('bot.update'))
   );
   loadShop();
@@ -1240,12 +1244,12 @@ function loadCodes() {
     const file = fs.readFileSync(codesFile, 'utf8');
     codesCache = yaml.load(file) || {};
     console.log(
-      chalk.bold.hex('#ff1d3b')(t('bot.codes_prefix')) + ' ' +
+      miniMessage(`<bold><gradient:#ff1d3b:#ff6378>${t('bot.codes_prefix')} </gradient></bold>`) +
       chalk.hex('#7DFF7C')(t('bot.codes_loaded'))
     );
   } catch (err) {
     console.error(
-      chalk.bold.hex('#ff1d3b')(t('bot.codes_prefix')) + ' ' +
+      miniMessage(`<bold><gradient:#ff1d3b:#ff6378>${t('bot.codes_prefix')} </gradient></bold>`) +
       chalk.hex('#FF7C7C')(`${t('bot.errorload')}: ${err}`)
     );
     codesCache = {};
@@ -1255,7 +1259,7 @@ function loadCodes() {
 loadCodes();
 fs.watchFile(codesFile, () => {
   console.log(
-    chalk.bold.hex('#ff1d3b')(t('bot.codes_prefix')) + ' ' +
+    miniMessage(`<bold><gradient:#ff1d3b:#ff6378>${t('bot.codes_prefix')} </gradient></bold>`) +
     chalk.hex('#FFEA48')(t('bot.update'))
   );
   loadCodes();
@@ -1307,7 +1311,6 @@ export function stopBroadcast() {
 }
 
 async function processUserCommand(realUsername, message, source = 'mc', originalSender = null) {
-  const isConsole = realUsername === 'SYSTEM';
   const originalCasedUsername = isConsole ? 'SYSTEM' : realUsername;
   const displayName = source === 'discord' && originalSender ? originalSender : originalCasedUsername;
 
@@ -1348,7 +1351,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
 
 bot.on('login', () => {
   console.log(
-    chalk.bold.hex('#61EFFF')(t('other.bot.prefix')) + ' ' +
+    miniMessage(`<bold><gradient:#61EFFF:#bef8ff>${t('other.bot.prefix')} </gradient></bold>`) +
     chalk.hex('#acacac')(t('other.bot.logged'))
   );
 });
@@ -1427,7 +1430,10 @@ bot.on('message', async (jsonMsg, position) => {
         bot.clickWindow(slot.slot, 0, 0);
       }, 1500);
     } catch (err) {
-      console.error(chalk.hex('#FF0000')(`${t('bot.error_prefix')}: ${err}`));
+      console.error(
+        miniMessage(`<bold><gradient:#FF0000:#ff4f4f>${t('bot.error_prefix')} </gradient></bold>`) +
+        chalk.hex('#ffa8a8')(err)
+      );
     }
   }
 
@@ -1517,7 +1523,7 @@ bot.on('message', async (jsonMsg, position) => {
           await processUserCommand(realNick, cmd);
         } catch (err) {
           console.error(
-            chalk.bold.hex('#FF0000')(t('bot.error_prefix')) + ' ' +
+            miniMessage(`<bold><gradient:#FF0000:#ff4f4f>${t('bot.error_prefix')} </gradient></bold>`) +
             chalk.hex('#ff8282')('processUserCommand (pending cmds):', err)
           );
         }
@@ -1584,7 +1590,7 @@ bot.on('message', async (jsonMsg, position) => {
 bot.once('windowOpen', (window) => {
   const title = window.title?.value?.text?.value;
   console.log(
-    chalk.bold.hex('#FF70C3')(t('other.gui.prefix')) + ' ' +
+    miniMessage(`<bold><gradient:#FF70C3:#ffbce3>${t('other.gui.prefix')} </gradient></bold>`) +
     chalk.hex('#ffafde')(`${t('other.gui.window_opened')}: ${title}`)
   );
 
@@ -1594,12 +1600,12 @@ bot.once('windowOpen', (window) => {
     if (slot) {
       bot.clickWindow(slot.slot, 0, 0);
       console.log(
-        chalk.bold.hex('#FF70C3')(t('other.gui.prefix')) + ' ' +
+        miniMessage(`<bold><gradient:#FF70C3:#ffbce3>${t('other.gui.prefix')} </gradient></bold>`) +
         chalk.hex('#ffafde')(t('other.gui.slotclicked', { slot: slot.slot, name: slot.name }))
       );
     } else {
       console.log(
-        chalk.bold.hex('#FF70C3')(t('other.gui.prefix')) + ' ' +
+        miniMessage(`<bold><gradient:#FF70C3:#ffbce3>${t('other.gui.prefix')} </gradient></bold>`) +
         chalk.hex('#ffafde')(t('other.gui.emptyslot'))
       );
     }
@@ -1637,7 +1643,7 @@ rl.on('line', async (input) => {
   const consoleCommands = ['blacklist', 'eco', 'cmd', 'ban', 'unban', 'exit', 'info', 'bcode', 'restart', 'role'];
 
   if (consoleCommands.some(cmd => lowered.startsWith(config.botprefix + cmd))) {
-    await processUserCommand('SYSTEM', trimmed);
+    await processUserCommand('SYSTEM', trimmed, 'console');
 
   } else if (trimmed.startsWith('menu.slot.')) {
     const slotStr = trimmed.split('.')[2];
@@ -1699,12 +1705,15 @@ rl.on('line', async (input) => {
 });
 
 bot.on('error', err => {
-  console.error(chalk.hex('#FF0000')(`${t('bot.error_prefix')}: ${err}`));
+  console.error(
+    miniMessage(`<bold><gradient:#FF0000:#ff4f4f>${t('bot.error_prefix')} </gradient></bold>`) +
+    chalk.hex('#ffa8a8')(err)
+  );
 });
 
 bot.on('end', (reason) => {
   console.log(
-    chalk.bold.hex('#61EFFF')(t('other.bot.prefix')) + ' ' +
+    miniMessage(`<bold><gradient:#61EFFF:#bef8ff>${t('other.bot.prefix')} </gradient></bold>`) +
     chalk.hex('#acacac')(`${t('other.bot.end')}: ${reason}`)
   );
   setTimeout(() => process.exit(1), 100);

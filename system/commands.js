@@ -10,6 +10,7 @@ import { exec } from "child_process";
 import fs from 'fs';
 import yaml from 'js-yaml';
 import { loadPlugin, disablePlugin, reloadPlugin, plugins, enablePlugin } from './PluginManager.js';
+import { miniMessage } from './minimessage.js';
 
 const withdrawRequests = new Map();
 const activeBlackjackGames = new Map();
@@ -26,7 +27,7 @@ function isNearby(username, maxDistance = 10) {
     return distance <= maxDistance;
 }
 
-export async function preCommandCheck({ cmd, parts, source, displayName, realUsername, isConsole }) {
+export async function preCommandCheck({ cmd, parts, source, displayName, realUsername }) {
     const trimmedCmd = cmd.toLowerCase();
 
     const discordBlockedCommands = config.discordBlockedCommands;
@@ -45,12 +46,12 @@ export async function preCommandCheck({ cmd, parts, source, displayName, realUse
         return false;
     }
 
-    if (displayName !== 'SYSTEM' && source === 'mc' && config.enable_isnearby && !isNearby(displayName, 10)) {
-		await bot.chat(`/m ${displayName} ${t('bot.isnearby')}`);
-		return false;
-	}
+    if (displayName !== "SYSTEM" && source === 'mc' && config.enable_isnearby && !isNearby(displayName, 10)) {
+        await bot.chat(`/m ${displayName} ${t('bot.isnearby')}`);
+        return false;
+    }
 
-    if (!alwaysAllowed.includes(trimmedCmd) && !isConsole) {
+    if (!alwaysAllowed.includes(trimmedCmd) && source !== 'discord') {
         if (!(await hasPermission(displayName, trimmedCmd))) {
             await bot.chat(`/m ${displayName} ${t('bot.cmd.noperm')} &e${config.botprefix}${trimmedCmd}!`);
             return false;
@@ -110,7 +111,7 @@ export const commands = {
                 const roleDisplay = roleData?.display || '&7???';
 
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.info', { displayName, prefix: config.botprefix, uptime: formatted, role: roleDisplay })}`);
-            } else {
+            } else if (source === 'discord') {
                 await discordOutput.send({
                     embeds: [
                         sendEmbed(
@@ -131,6 +132,28 @@ export const commands = {
                         )
                     ]
                 });
+            } else {
+                console.log(
+                    miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                    chalk.hex('#D5D5D5')(t('console.info.creator')) +
+                    miniMessage('<gradient:#4da9ff:#74ff86>exillrei</gradient>') +
+                    ('\n') +
+                    miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                    chalk.hex('#D5D5D5')(t('console.info.uptime')) +
+                    miniMessage(`<gradient:#ff6944:#ffb09c>${formatted}</gradient>`) +
+                    ('\n') +
+                    miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                    chalk.hex('#D5D5D5')(t('console.info.connection')) +
+                    miniMessage(`<gradient:#ba25ff:#cf67ff>${ipPort}</gradient>`) +
+                    ('\n') +
+                    miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                    chalk.hex('#D5D5D5')(t('console.info.online')) +
+                    chalk.hex('#ff3535')(Object.keys(bot.players).length) +
+                    ('\n') +
+                    miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                    chalk.hex('#D5D5D5')(t('console.info.ping')) +
+                    miniMessage(`<gradient:#2aac3b:#80ff91>${mcPing}/${discordPing}</gradient>`)
+                );
             }
             return;
         }
@@ -150,8 +173,13 @@ export const commands = {
         if (!targetUser) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+            else
+                console.log(
+                    miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                    chalk.hex('#D5D5D5')(t('console.usernotfound', { user: target }))
+                );
             return;
         }
 
@@ -159,10 +187,11 @@ export const commands = {
         const roleDisplay = roleData?.display || '???';
         const banned = await isBanned(targetUser.nickname);
         const bannedSymbol = banned ? '&a☑' : '&c☒';
+        const bannedSymbolConsole = banned ? '☑' : '☒';
 
         if (source === 'mc') {
             await bot.chat(`/m ${displayName} &f${roleDisplay} &f${targetUser.nickname} &8| &eID: &6${targetUser.id} &8| &2${t('db.balance')}: &6${targetUser.balance.toLocaleString('de-DE')}⛃ &8| ${t('bot.banned', { ban: bannedSymbol })}`);
-        } else {
+        } else if (source === 'discord') {
             await discordOutput.send({
                 embeds: [
                     sendEmbed(
@@ -174,13 +203,35 @@ export const commands = {
                             fields: [
                                 { name: '🆔 ID', value: `\`${targetUser.id}\``, inline: true },
                                 { name: `🏷 ${t('db.role')}`, value: `\`${targetUser.role}\``, inline: true },
-                                { name: `💰 ${t('db.balance')}`, value: `\`${targetUser.balance}\``, inline: true }
+                                { name: `💰 ${t('db.balance')}`, value: `\`${targetUser.balance}⛃\``, inline: true }
                             ],
                             timestamp: true
                         }
                     )
                 ]
             });
+        } else {
+            console.log(
+                miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                chalk.hex('#D5D5D5')(t('console.info.nickname')) +
+                miniMessage(`<gradient:#2f9aff:#cae5ff>${targetUser.nickname}</gradient>`) +
+                ('\n') +
+                miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                chalk.hex('#D5D5D5')(t('console.info.id')) +
+                chalk.hex('#86c752')(targetUser.id) +
+                ('\n') +
+                miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                chalk.hex('#D5D5D5')(t('console.info.role')) +
+                miniMessage(`<gradient:#41ffc0:#dafff3>${targetUser.role}</gradient>`) +
+                ('\n') +
+                miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                chalk.hex('#D5D5D5')(t('console.info.balance')) +
+                miniMessage(`<gradient:#ffbb00:#ffe9ac>${targetUser.balance}⛃</gradient>`) +
+                ('\n') +
+                miniMessage('<gradient:#158eff:#b6dcff>[INFO] </gradient>') +
+                chalk.hex('#D5D5D5')(t('console.info.banned')) +
+                chalk.hex('#d4a7ff')(bannedSymbolConsole)
+            );
         }
     },
     msg: async ({ source, displayName, parts }) => {
@@ -300,15 +351,21 @@ export const commands = {
         }
         return;
     },
-    blacklist: async ({ source, displayName, parts, isConsole }) => {
+    blacklist: async ({ source, displayName, parts }) => {
         const subcmd = parts[1]?.toLowerCase();
         const target = parts[2];
 
         if (!['add', 'remove', 'info'].includes(subcmd || '')) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.usage', { prefix: config.botprefix })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.cmd.blacklist.usagedc', { prefix: config.botprefix })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#ff2f2f:#ffacac>${t('console.blacklist.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.blacklist.usage1')) +
+                    miniMessage(`<gradient:#ff6944:#ffb09c>${t('console.blacklist.usage2', { prefix: config.botprefix })}</gradient>`)
+                );
             return;
         }
 
@@ -318,13 +375,24 @@ export const commands = {
             if (!list.length) {
                 if (source === 'mc')
                     await bot.chat(`/m ${displayName} &c${t('bot.cmd.blacklist.empty')}`);
-                else
+                else if (source === 'discord')
                     await outputToDiscord(`${t('bot.cmd.blacklist.empty')}`);
+                else
+                    console.log(
+                        miniMessage(`<gradient:#ff2f2f:#ffacac>${t('console.blacklist.prefix')}</gradient>`) +
+                        chalk.hex('#D5D5D5')(t('console.blacklist.empty'))
+                    );
             } else {
                 if (source === 'mc')
                     await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.list', { list: list.join(', ') })}`);
-                else
+                else if (source === 'discord')
                     await outputToDiscord(`${t('bot.cmd.blacklist.listdc', { list: list.join(', ') })}`);
+                else
+                    console.log(
+                        miniMessage(`<gradient:#ff2f2f:#ffacac>${t('console.blacklist.prefix')}</gradient>`) +
+                        chalk.hex('#D5D5D5')(t('console.blacklist.list')) +
+                        miniMessage(`<gradient:#ff6944:#ffb09c>${list.join(', ')}</gradient>`)
+                    );
             }
             return;
         }
@@ -332,8 +400,14 @@ export const commands = {
         if (!target) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.usage_sub', { prefix: config.botprefix, subcmd })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.cmd.blacklist.usage_subdc', { prefix: config.botprefix, subcmd })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#ff2f2f:#ffacac>${t('console.blacklist.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.blacklist.usage1')) +
+                    miniMessage(`<gradient:#ff6944:#ffb09c>${t('console.blacklist.usage2', { prefix: config.botprefix })}</gradient>`)
+                );
             return;
         }
 
@@ -341,13 +415,18 @@ export const commands = {
         if (!targetUser || !(await userExists(targetUser))) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#ff2f2f:#ffacac>${t('console.blacklist.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.usernotfound', { user: target }))
+                );
             return;
         }
 
         const role = await getRole(targetUser);
-        if (!isConsole && (role === 'moder' || role === 'owner')) {
+        if (source !== 'console' && (role === 'moder' || role === 'owner')) {
             const roleName = role === 'owner' ? t('bot.cmd.ban.owner') : t('bot.cmd.ban.moder');
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} &c${t('bot.cmd.blacklist.cannot_manage', { role: roleName })}`);
@@ -360,8 +439,13 @@ export const commands = {
             if (await isBlacklisted(targetUser)) {
                 if (source === 'mc')
                     await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.already', { user: targetUser })}`);
-                else
+                else if (source === 'discord')
                     await outputToDiscord(`${t('bot.cmd.blacklist.alreadydc', { user: targetUser })}`);
+                else
+                    console.log(
+                        miniMessage(`<gradient:#ff2f2f:#ffacac>${t('console.blacklist.prefix')}</gradient>`) +
+                        chalk.hex('#D5D5D5')(t('console.blacklist.already', { user: targetUser }))
+                    );
             } else {
                 await addToBlacklist(targetUser);
                 await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.blacklist.added_mc', { by: displayName, user: targetUser })}`);
@@ -374,8 +458,13 @@ export const commands = {
             if (!(await isBlacklisted(targetUser))) {
                 if (source === 'mc')
                     await bot.chat(`/m ${displayName} ${t('bot.cmd.blacklist.not_in', { user: targetUser })}`);
-                else
+                else if (source === 'discord')
                     await outputToDiscord(`${t('bot.cmd.blacklist.not_indc', { user: targetUser })}`);
+                else
+                    console.log(
+                        miniMessage(`<gradient:#ff2f2f:#ffacac>${t('console.blacklist.prefix')}</gradient>`) +
+                        chalk.hex('#D5D5D5')(t('console.blacklist.not_in', { user: targetUser }))
+                    );
             } else {
                 await removeFromBlacklist(targetUser);
                 await bot.chat(`/me &8[&#00ff00🛈&8] ${t('bot.cmd.blacklist.removed_mc', { by: displayName, user: targetUser })}`);
@@ -386,7 +475,7 @@ export const commands = {
 
         return;
     },
-    ban: async ({ source, displayName, parts, isConsole }) => {
+    ban: async ({ source, displayName, parts }) => {
         const target = parts[1];
         const timeStr = parts[2];
         const reason = parts.slice(3).join(' ') || t('bot.cmd.ban.noreason');
@@ -394,8 +483,14 @@ export const commands = {
         if (!target || !timeStr || !/^\d+[smhd]$/.test(timeStr)) {
             if (source === 'mc') {
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.ban.usage', { prefix: config.botprefix })}`);
-            } else {
+            } else if (source === 'discord') {
                 await outputToDiscord(`${t('bot.cmd.ban.usagedc', { prefix: config.botprefix })}`);
+            } else {
+                console.log(
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.ban.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.ban.usage1')) +
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.ban.usage2', { prefix: config.botprefix })}</gradient>`)
+                );
             }
             return;
         }
@@ -404,13 +499,18 @@ export const commands = {
         if (!targetUser || !(await userExists(targetUser))) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.ban.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.usernotfound', { user: target }))
+                );
             return;
         }
 
         const role = await getRole(targetUser);
-        if (!isConsole && (role === 'moder' || role === 'owner')) {
+        if (source !== 'console' && (role === 'moder' || role === 'owner')) {
             const roleName = role === 'owner' ? t('bot.cmd.ban.owner') : t('bot.cmd.ban.moder');
             if (source === 'mc') await bot.chat(`/m ${displayName} &c${t('bot.cmd.ban.cannot_ban', { role: roleName })}`);
             else await outputToDiscord(t('bot.cmd.ban.cannot_ban', { role: roleName }))
@@ -427,8 +527,13 @@ export const commands = {
         if (!ms) {
             if (source === 'mc') {
                 await bot.chat(`/m ${displayName} &c${t('bot.cmd.ban.bad_time')}`);
-            } else {
+            } else if (source === 'discord') {
                 await outputToDiscord(`${t('bot.cmd.ban.bad_time')}`);
+            } else {
+                console.log(
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.ban.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.ban.bad_time'))
+                );
             }
             return;
         }
@@ -446,8 +551,14 @@ export const commands = {
         if (!target) {
             if (source === 'mc')
                 await bot.chat(`/m${displayName} ${t('bot.cmd.unban.usage', { prefix: config.botprefix })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.cmd.unban.usagedc', { prefix: config.botprefix })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.unban.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.unban.usage1')) +
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.unban.usage2', { prefix: config.botprefix })}</gradient>`)
+                );
             return;
         }
 
@@ -455,8 +566,13 @@ export const commands = {
         if (!targetNick) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.unban.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.usernotfound', { user: target }))
+                );
             return;
         }
 
@@ -464,8 +580,13 @@ export const commands = {
         if (!banInfo) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.unban.not_banned', { user: targetNick })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.cmd.unban.not_banneddc', { user: targetNick })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#ff3419:#ffbb6d>${t('console.unban.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.unban.not_banned', { user: target }))
+                );
             return;
         }
 
@@ -485,8 +606,14 @@ export const commands = {
         if (!['give', 'take'].includes(subcmd || '') || !target || !targetCommand) {
             if (source === 'mc') {
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.cmd.usage_mc', { prefix: config.botprefix })}`);
-            } else {
+            } else if (source === 'discord') {
                 await outputToDiscord(`${t('bot.cmd.cmd.usage_discord', { prefix: config.botprefix })}`);
+            } else {
+                console.log(
+                    miniMessage(`<gradient:#18af5f:#4cf89d>${t('console.cmd.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.cmd.usage1')) +
+                    miniMessage(`<gradient:#93ffc5:#dbffec>${t('console.cmd.usage2', { prefix: config.botprefix })}</gradient>`)
+                );
             }
             return;
         }
@@ -495,8 +622,13 @@ export const commands = {
         if (!targetUser || !(await userExists(targetUser))) {
             if (source === 'mc') {
                 await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
-            } else {
+            } else if (source === 'discord') {
                 await outputToDiscord(t('bot.usernotfounddc', { user: target }));
+            } else {
+                console.log(
+                    miniMessage(`<gradient:#18af5f:#4cf89d>${t('console.cmd.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.usernotfound', { user: target }))
+                );
             }
             return;
         }
@@ -816,8 +948,14 @@ export const commands = {
         if (!['give', 'take', 'set'].includes(subcmd || '') || !target || isNaN(amount)) {
             if (source === 'mc') {
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.eco.usage', { prefix: config.botprefix })}`);
-            } else {
+            } else if (source === 'discord') {
                 await outputToDiscord(`${t('bot.cmd.eco.usagedc', { prefix: config.botprefix })}`);
+            } else {
+                console.log(
+                    miniMessage(`<gradient:#f8ff00:#faff51>${t('console.eco.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.eco.usage1')) +
+                    miniMessage(`<gradient:#fcff8b:#fdffc6>${t('console.eco.usage2', { prefix: config.botprefix })}</gradient>`)
+                );
             }
             return;
         }
@@ -827,8 +965,13 @@ export const commands = {
         if (!targetUser || !(await userExists(targetUser))) {
             if (source === 'mc')
                 await bot.chat(`/m ${displayName} ${t('bot.usernotfound', { user: target })}`);
-            else
+            else if (source === 'discord')
                 await outputToDiscord(`${t('bot.usernotfounddc', { user: target })}`);
+            else
+                console.log(
+                    miniMessage(`<gradient:#f8ff00:#faff51>${t('console.eco.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.usernotfound', { user: target }))
+                );
             return;
         }
 
@@ -1047,16 +1190,25 @@ export const commands = {
         fs.writeFileSync(codesFile, yaml.dump(codesCache, { indent: 2, lineWidth: -1 }), 'utf8');
         return;
     },
-    bcode: async ({ displayName, parts }) => {
+    bcode: async ({ displayName, parts, source }) => {
         const codeName = parts[1]?.toLowerCase();
         if (!codeName) {
-            await bot.chat(`/m ${displayName} ${t('bot.cmd.bcode.no_code', { prefix: config.botprefix })}`);
+            if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.bcode.no_code', { prefix: config.botprefix })}`);
+            else console.log(
+                miniMessage(`<gradient:#ff005b:#ff4b8b>${t('console.bcode.prefix')}</gradient>`) +
+                chalk.hex('#D5D5D5')(t('console.bcode.no_code1')) +
+                miniMessage(`<gradient:#ff85b0:#ffcadd>${t('console.bcode.no_code2', { prefix: config.botprefix })}</gradient>`)
+            );
             return;
         }
 
         const codeObj = codesCache[codeName];
         if (!codeObj) {
-            await bot.chat(`/m ${displayName} ${t('bot.cmd.bcode.not_found', { code: codeName })}`);
+            if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.bcode.not_found', { code: codeName })}`);
+            else console.log(
+                miniMessage(`<gradient:#ff005b:#ff4b8b>${t('console.bcode.prefix')}</gradient>`) +
+                chalk.hex('#D5D5D5')(t('console.bcode.not_found', { code: codeName }))
+            );
             return;
         }
 
@@ -1165,11 +1317,11 @@ export const commands = {
             minwithdrawconfirm: t('bot.cmd.config.minwithdrawconfirm'),
             killswitch: t('bot.cmd.config.killswitch'),
             disablewithdraw: t('bot.cmd.config.disablewithdraw'),
-			casinocooldown: t('bot.cmd.config.casinocooldown'),
-			bjcooldown: t('bot.cmd.config.bjcooldown'),
-			enable_isnearby: t('bot.cmd.config.enable_isnearby'),
-			enable_chatgame: t('bot.cmd.config.enable_chatgame'),
-			chatgame_interval: t('bot.cmd.config.chatgame_interval')
+            casinocooldown: t('bot.cmd.config.casinocooldown'),
+            bjcooldown: t('bot.cmd.config.bjcooldown'),
+            enable_isnearby: t('bot.cmd.config.enable_isnearby'),
+            enable_chatgame: t('bot.cmd.config.enable_chatgame'),
+            chatgame_interval: t('bot.cmd.config.chatgame_interval')
         };
 
         const hiddenParams = ['host', 'port', 'botnick', 'bannedRunCommands', 'discordBlockedCommands', 'alwaysAllowed', 'discord', 'ai', 'gui', 'chat', 'mcversion'];
@@ -1242,7 +1394,12 @@ export const commands = {
 
         if (!sub) {
             if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage', { prefix: config.botprefix })}`);
-            else await outputToDiscord(t('bot.cmd.role.usagedc', { prefix: config.botprefix }));
+            else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.usagedc', { prefix: config.botprefix }));
+            else console.log(
+                miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                chalk.hex('#D5D5D5')(t('console.role.usage1')) +
+                miniMessage(`<gradient:#a2ffad:#d9ffde>${t('console.role.usage2', { prefix: config.botprefix })}</gradient>`)
+            );
             return;
         }
 
@@ -1252,13 +1409,22 @@ export const commands = {
 
             if (!roleName || !display) {
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage_add', { prefix: config.botprefix })}`);
-                else await outputToDiscord(t('bot.cmd.role.usage_adddc', { prefix: config.botprefix }));
+                else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.usage_adddc', { prefix: config.botprefix }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.role.usage1')) +
+                    miniMessage(`<gradient:#a2ffad:#d9ffde>${t('console.role.usage_add', { prefix: config.botprefix })}</gradient>`)
+                );
                 return;
             }
 
             if (roles[roleName]) {
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.exists', { role: roleName })}`);
-                else await outputToDiscord(t('bot.cmd.role.existsdc', { role: roleName }));
+                else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.existsdc', { role: roleName }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.role.exists', { role: roleName }))
+                );
                 return;
             }
 
@@ -1266,7 +1432,11 @@ export const commands = {
             saveRoles();
 
             if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.created', { role: roleName })}`);
-            else await outputToDiscord(t('bot.cmd.role.createddc', { role: roleName }));
+            else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.createddc', { role: roleName }));
+            else console.log(
+                miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                chalk.hex('#D5D5D5')(t('console.role.created', { role: roleName }))
+            );
             return;
         }
 
@@ -1275,7 +1445,11 @@ export const commands = {
 
             if (!roleName || !roles[roleName]) {
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.notfound', { role: roleName })}`);
-                else await outputToDiscord(t('bot.cmd.role.notfounddc', { role: roleName }));
+                else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.notfounddc', { role: roleName }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.role.notfound', { role: roleName }))
+                );
                 return;
             }
 
@@ -1285,7 +1459,11 @@ export const commands = {
             db.run('UPDATE users SET role = "user" WHERE role = ?', [roleName]);
 
             if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.removed', { role: roleName })}`);
-            else await outputToDiscord(t('bot.cmd.role.removeddc', { role: roleName }));
+            else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.removeddc', { role: roleName }));
+            else console.log(
+                miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                chalk.hex('#D5D5D5')(t('console.role.removed', { role: roleName }))
+            );
             return;
         }
 
@@ -1295,14 +1473,23 @@ export const commands = {
 
             if (!targetArg || !roles[roleName]) {
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage_set', { prefix: config.botprefix })}`);
-                else await outputToDiscord(t('bot.cmd.role.usage_setdc', { prefix: config.botprefix }));
+                else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.usage_setdc', { prefix: config.botprefix }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.role.usage1')) +
+                    miniMessage(`<gradient:#a2ffad:#d9ffde>${t('console.role.usage_set', { prefix: config.botprefix })}</gradient>`)
+                );
                 return;
             }
 
             const nickname = await resolveUserArg(targetArg);
             if (!nickname) {
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.usernotfounddc', { user: targetArg })}`);
-                else await outputToDiscord(t('bot.usernotfounddcdc', { user: targetArg }));
+                else if (source === 'discord') await outputToDiscord(t('bot.usernotfounddcdc', { user: targetArg }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.usernotfound', { user: targetArg }))
+                );
                 return;
             }
 
@@ -1323,7 +1510,12 @@ export const commands = {
 
             if (!['add', 'remove'].includes(action) || !roles[roleName] || !command) {
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.usage_cmd', { prefix: config.botprefix })}`);
-                else await outputToDiscord(t('bot.cmd.role.usage_cmddc', { prefix: config.botprefix }));
+                else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.usage_cmddc', { prefix: config.botprefix }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.role.usage1')) +
+                    miniMessage(`<gradient:#a2ffad:#d9ffde>${t('console.role.usage_cmd', { prefix: config.botprefix })}</gradient>`)
+                );
                 return;
             }
 
@@ -1335,7 +1527,11 @@ export const commands = {
                 saveRoles();
 
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.cmd_added', { command, role: roleName })}`);
-                else await outputToDiscord(t('bot.cmd.role.cmd_addeddc', { command, role: roleName }));
+                else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.cmd_addeddc', { command, role: roleName }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.role.cmd_added', { command, role: roleName }))
+                );
                 return;
             }
 
@@ -1344,13 +1540,21 @@ export const commands = {
                 saveRoles();
 
                 if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.cmd_removed', { command, role: roleName })}`);
-                else await outputToDiscord(t('bot.cmd.role.cmd_removeddc', { command, role: roleName }));
+                else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.cmd_removeddc', { command, role: roleName }));
+                else console.log(
+                    miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+                    chalk.hex('#D5D5D5')(t('console.role.cmd_removed', { command, role: roleName }))
+                );
                 return;
             }
         }
 
         if (source === 'mc') await bot.chat(`/m ${displayName} ${t('bot.cmd.role.unknown_sub')}`);
-        else await outputToDiscord(t('bot.cmd.role.unknown_subdc'));
+        else if (source === 'discord') await outputToDiscord(t('bot.cmd.role.unknown_subdc'));
+        else console.log(
+            miniMessage(`<gradient:#3ebf4d:#68ff7a>${t('console.role.prefix')}</gradient>`) +
+            chalk.hex('#D5D5D5')(t('console.role.unknown_sub', { command, role: roleName }))
+        );
         return;
     },
     database: async ({ }) => {
@@ -1425,11 +1629,11 @@ export const commands = {
         const formattedProfit = profit.toLocaleString('de-DE');
 
         if (multiplier === 0) {
-            bot.chat(`/me &8[&#FFC022✨&8] ${t('bot.cmd.casino.defeat', { displayName, bet: bet.toLocaleString('de-DE'), newBalance: newBalance.toLocaleString('de-DE') })}`);
+            bot.chat(`/m ${displayName} ${t('bot.cmd.casino.defeat', { displayName, bet: bet.toLocaleString('de-DE'), newBalance: newBalance.toLocaleString('de-DE') })}`);
         } else if (multiplier === 1) {
-            bot.chat(`/me &8[&#FFC022✨&8] ${t('bot.cmd.casino.return', { displayName, newBalance: newBalance.toLocaleString('de-DE') })}`);
+            bot.chat(`/m ${displayName} ${t('bot.cmd.casino.return', { displayName, newBalance: newBalance.toLocaleString('de-DE') })}`);
         } else {
-            bot.chat(`/me &8[&#FFC022✨&8] ${t('bot.cmd.casino.win', { displayName, multiplier, profit: formattedProfit, newBalance: newBalance.toLocaleString('de-DE') })}`);
+            bot.chat(`/m ${displayName} ${t('bot.cmd.casino.win', { displayName, multiplier, profit: formattedProfit, newBalance: newBalance.toLocaleString('de-DE') })}`);
         }
 
         return;
@@ -1494,7 +1698,6 @@ export const commands = {
             if (total > 21) {
                 game.status = 'lost';
                 bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.bust')} &6${game.bet.toLocaleString('de-DE')}⛃`);
-                bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.defeat_broadcast', { user: displayName, bet: game.bet.toLocaleString('de-DE') })}`);
                 activeBlackjackGames.delete(displayName);
             } else {
                 bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.yourcards')} &b${game.playerHand.join(', ')} &8(&9=${total}&8) &8| ${t('bot.cmd.casino.blackjack.usehitorstand', { prefix: config.botprefix })}`);
@@ -1524,14 +1727,11 @@ export const commands = {
             if (dealerTotal > 21 || playerTotal > dealerTotal) {
                 resultText = `${t('bot.cmd.casino.blackjack.win')} &6${formattedWinBet}⛃`;
                 await changeBalance(displayName, winbet);
-                bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.win_broadcast', { user: displayName, bet: formattedWinBet })}`);
             } else if (playerTotal === dealerTotal) {
                 resultText = `${t('bot.cmd.casino.blackjack.tie')} &8(&6${game.bet.toLocaleString('de-DE')}⛃&8)`;
                 await changeBalance(displayName, game.bet);
-                bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.tie_broadcast', { user: displayName })}`);
             } else {
                 resultText = `${t('bot.cmd.casino.blackjack.defeat')} &6${game.bet.toLocaleString('de-DE')}⛃`;
-                bot.chat(`/me &8[&e🃏&8] ${t('bot.cmd.casino.blackjack.defeat_broadcast', { user: displayName, bet: game.bet.toLocaleString('de-DE') })}`);
             }
 
             bot.chat(`/m ${displayName} ${t('bot.cmd.casino.blackjack.dealer')} &b${dealerHand.join(', ')} &8(&9=${dealerTotal}&8) &8| ${t('bot.cmd.casino.blackjack.yourcards')} &b${game.playerHand.join(', ')} &8(&9=${playerTotal}&8) &8| ${resultText}`);
@@ -1581,7 +1781,7 @@ export const commands = {
         return;
     },
     plugin: async ({ source, parts }) => {
-        
+
         if (source === 'mc') return;
 
         const subcmd = parts[1]?.toLowerCase();
@@ -1642,7 +1842,7 @@ export const commands = {
                     break;
             }
         } catch (err) {
-            console.error(chalk.hex('#ad0e0e')(`[PluginManager] ` + (chalk.hex('#ff8181')(`${t('bot.cmd.plugin.pluginerror')} ${pluginName}: `) + (chalk.hex('#cc3a3a')(`${err}`)))));
+            console.error(miniMessage('<bold><gradient:#FF0000:#FF7F7F>[PluginManager] </gradient></bold>' + (chalk.hex('#ff8181')(`${t('bot.cmd.plugin.pluginerror')} ${pluginName}: `) + (chalk.hex('#cc3a3a')(`${err}`)))));
             await outputToDiscord(`${t('bot.cmd.plugin.error')}`);
         }
     },

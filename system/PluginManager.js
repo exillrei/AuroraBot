@@ -3,6 +3,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import * as botModule from './main.js';
 import chalk from 'chalk';
+import { miniMessage } from './minimessage.js';
 
 export const plugins = new Map();
 export const pluginCommands = {};
@@ -56,7 +57,10 @@ export async function loadPlugin(name) {
     try {
       await module.onEnable({ registerCommand, registerListener, ...botModule });
     } catch (err) {
-      console.error(`[PluginManager] Error in onEnable | Plugin "${name}":`, err);
+      console.error(
+        miniMessage('<bold><gradient:#FF0000:#FF7F7F>[PluginManager] </gradient></bold>') +
+        chalk.hex('#D5D5D5')(`Error in onEnable | Plugin: "${name}":`, err)
+      )
     }
   }
 
@@ -129,9 +133,9 @@ export async function loadAllPlugins() {
   for (const name of pluginFolders) {
     try {
       const pluginData = await loadPlugin(name);
-      console.log(chalk.hex('#3ad34e')(`[PluginManager] ` + (chalk.hex('#baffb8')(`Loaded and enabled plugin: `)) + (chalk.hex('#7aff76')(`${pluginData.manifest.display || name}`))));
+      console.log(miniMessage('<bold><gradient:#3ad34e:#d1ffc7>[PluginManager] </gradient></bold>' + (chalk.hex('#baffb8')(`Loaded and enabled plugin: `)) + (chalk.hex('#7aff76')(`${pluginData.manifest.display || name}`))));
     } catch (err) {
-      console.error(chalk.hex('#ad0e0e')(`[PluginManager] ` + (chalk.hex('#ff8181')(`Failed to load plugin "${name}": `) + (chalk.hex('#cc3a3a')(`${err.message}`)))));
+      console.error(miniMessage('<bold><gradient:#FF0000:#FF7F7F>[PluginManager] </gradient></bold>' + (chalk.hex('#ff8181')(`Failed to load plugin "${name}": `) + (chalk.hex('#cc3a3a')(`${err.message}`)))));
     }
   }
 }
