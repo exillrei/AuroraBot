@@ -1110,7 +1110,7 @@ export const commands = {
             }
 
             const totalPrice = item.price * amount;
-            const bal = getBalance(displayName);
+            const bal = await getBalance(displayName);
 
             if (bal < totalPrice) {
                 await bot.chat(`/m ${displayName} ${t('bot.cmd.shop.not_enough', {
