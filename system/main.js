@@ -1311,7 +1311,7 @@ export function stopBroadcast() {
 }
 
 async function processUserCommand(realUsername, message, source = 'mc', originalSender = null) {
-  const originalCasedUsername = isConsole ? 'SYSTEM' : realUsername;
+  const originalCasedUsername = source === 'console' ? 'SYSTEM' : realUsername;
   const displayName = source === 'discord' && originalSender ? originalSender : originalCasedUsername;
 
   if (realUsername === 'Unknown Player') return;
@@ -1323,7 +1323,7 @@ async function processUserCommand(realUsername, message, source = 'mc', original
   const parts = trimmed.split(/\s+/);
   const cmd = parts[0].toLowerCase().replace(config.botprefix, '');
 
-  const canRun = await preCommandCheck({ cmd, parts, source, displayName, realUsername, isConsole, message });
+  const canRun = await preCommandCheck({ cmd, parts, source, displayName, realUsername, message });
   if (!canRun) return;
 
   try {
