@@ -1505,6 +1505,7 @@ bot.on('message', async (jsonMsg, position) => {
         if (data.coins < config.mindeposit) {
           bot.chat(`/m ${realNick} ${t('bot.mindeposit', { min: config.mindeposit })}`);
           bot.chat(`/pay ${realNick} ${data.coins}`);
+          delete data.coins;
           return;
         }
 
